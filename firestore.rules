@@ -1,0 +1,123 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profilePath() {
+      return /databases/$(database)/documents/user_accounts/$(request.auth.uid);
+    }
+
+    function hasProfile() {
+      return signedIn() && exists(profilePath());
+    }
+
+    function profile() {
+      return get(profilePath()).data;
+    }
+
+    // Approved ASHA workers, PHC doctors and ward officers
+    function isStaff() {
+      return hasProfile()
+        && profile().approved == true
+        && profile().role in ['ASHA_WORKER', 'PHC_DOCTOR', 'WARD_OFFICER'];
+    }
+
+    function isApprovedRole(role) {
+      return hasProfile() && profile().approved == true && profile().role == role;
+    }
+
+    // Doctors and ward officers see the whole cohort; ASHA workers only their assigned mothers
+    function isClinicalLead() {
+      return isApprovedRole('PHC_DOCTOR') || isApprovedRole('WARD_OFFICER');
+    }
+
+    function isMotherAccount() {
+      return hasProfile() && profile().role == 'MOTHER';
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // ---------- User accounts ----------
+    // Users create their own profile. Mothers are auto-approved; staff roles must
+    // start unapproved and are approved by a Ward Officer (or in the Firebase console).
+    // Nobody can change their own role or approval flag.
+    match /user_accounts/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isApprovedRole('WARD_OFFICER'));
+
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.role in ['MOTHER', 'ASHA_WORKER', 'PHC_DOCTOR', 'WARD_OFFICER']
+        && request.resource.data.approved == (request.resource.data.role == 'MOTHER');
+
+      allow update: if signedIn() && (
+        (request.auth.uid == uid && !changedKeys().hasAny(['uid', 'role', 'approved']))
+        || isApprovedRole('WARD_OFFICER')
+      );
+
+      allow delete: if isApprovedRole('WARD_OFFICER');
+    }
+
+    // ---------- Maternal beneficiary records ----------
+    // Doctors and ward officers can read and write the cohort (and assign ASHA workers).
+    // An ASHA worker can read and write only mothers assigned to her (assignedAshaUid),
+    // and new mothers she registers are assigned to her. A mother can read only the
+    // record she owns (ownerUid), create it at sign-up, and update only her consent.
+    match /mothers/{beneficiaryId} {
+      function ownerUnchanged() {
+        return !('ownerUid' in resource.data)
+          || request.resource.data.ownerUid == resource.data.ownerUid;
+      }
+
+      allow read: if isClinicalLead()
+        || (isApprovedRole('ASHA_WORKER') && resource.data.assignedAshaUid == request.auth.uid)
+        || (signedIn() && resource.data.ownerUid == request.auth.uid);
+
+      allow create: if isClinicalLead()
+        || (isApprovedRole('ASHA_WORKER') && request.resource.data.assignedAshaUid == request.auth.uid)
+        || (isMotherAccount() && request.resource.data.ownerUid == request.auth.uid);
+
+      allow update: if (isClinicalLead() && ownerUnchanged())
+        || (isApprovedRole('ASHA_WORKER')
+          && resource.data.assignedAshaUid == request.auth.uid
+          && request.resource.data.assignedAshaUid == request.auth.uid
+          && ownerUnchanged())
+        || (signedIn()
+          && resource.data.ownerUid == request.auth.uid
+          && changedKeys().hasOnly(['dpdpConsent', 'lastSyncedAt']));
+
+      allow delete: if isApprovedRole('WARD_OFFICER');
+    }
+
+    // ---------- Clinical logs ----------
+    match /vitals_logs/{vitalId} {
+      allow read: if isClinicalLead();
+      allow create, update: if isStaff();
+      allow delete: if isApprovedRole('WARD_OFFICER');
+    }
+
+    match /prescriptions/{rxId} {
+      allow read: if isClinicalLead();
+      allow create, update: if isApprovedRole('PHC_DOCTOR');
+      allow delete: if isApprovedRole('WARD_OFFICER');
+    }
+
+    // ---------- Reserved collections ----------
+    match /sync_mutations/{mutationId} {
+      allow read, write: if isStaff();
+    }
+
+    match /emergency_alerts/{alertId} {
+      allow read: if isStaff();
+      allow create: if hasProfile();
+    }
+
+    // Everything else is denied by default.
+  }
+}

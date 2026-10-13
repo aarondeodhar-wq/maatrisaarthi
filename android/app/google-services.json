@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "536118937101",
+    "firebase_url": "https://maatrisaarthi-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "maatrisaarthi",
+    "storage_bucket": "maatrisaarthi.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:536118937101:android:ae56a4e502d3557c55b744",
+        "android_client_info": {
+          "package_name": "gov.in.maatrisaarthi.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "536118937101-mb9e9ueqpq7pth48akv3mf8qpn9gqpms.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "gov.in.maatrisaarthi.app",
+            "certificate_hash": "0e19f08c0a673f9abbf7e8a0044cc72a36bb5d15"
+          }
+        },
+        {
+          "client_id": "536118937101-e8ps996qdlrq0k20964a3tcua5mqf0u2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjO0K81xc154vnhEtm_93i9QlF1xHXqnM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "536118937101-e8ps996qdlrq0k20964a3tcua5mqf0u2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
