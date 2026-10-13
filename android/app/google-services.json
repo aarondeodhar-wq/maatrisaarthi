@@ -15,11 +15,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "536118937101-mb9e9ueqpq7pth48akv3mf8qpn9gqpms.apps.googleusercontent.com",
+          "client_id": "536118937101-lusp892nahlv85savtq4bo2p3d5a83tq.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "gov.in.maatrisaarthi.app",
-            "certificate_hash": "0e19f08c0a673f9abbf7e8a0044cc72a36bb5d15"
+            "certificate_hash": "5acf58f82c18583880d29c042f2a08c8fded418b"
           }
         },
         {
