@@ -20,7 +20,7 @@ import {
   Camera,
   Lock
 } from 'lucide-react';
-import { generateHealthPassQrCode } from '../core/qrEngine';
+import { HealthPassQr } from './HealthPassQr';
 import { createDefaultDPDPConsent } from '../core/dpdpCompliance';
 import { sendDirectWhatsApp, sendDirectSMS } from '../core/freeAlertsService';
 import { DevicePermissionsModal } from './DevicePermissionsModal';
@@ -44,21 +44,6 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
   const [showQrModal, setShowQrModal] = useState(false);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [showConsentPortal, setShowConsentPortal] = useState(false);
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
-
-  useEffect(() => {
-    // Generate real, scannable QR Code containing mother's clinical payload
-    generateHealthPassQrCode({
-      app: 'MAATRISAARTHI',
-      type: 'MOTHER_HEALTH_PASS',
-      beneficiaryId: beneficiary?.id || 'ben_001',
-      rchId: beneficiary?.rchId || 'MH-PUN-2026-8819',
-      timestamp: new Date().toISOString()
-    }).then(url => {
-      setQrCodeDataUrl(url);
-    });
-  }, [userName, beneficiary]);
-
   const t = {
     myPass: {
       mr: 'माझा डिजिटल मातृ सुरक्षा पास (Digital MCP Pass)',
@@ -402,17 +387,7 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
 
             {/* Real Scannable High-Res QR Code Card */}
             <div className="bg-white p-3 sm:p-4 rounded-3xl inline-flex items-center justify-center shadow-2xl border-4 border-teal-500/40 max-w-full">
-              {qrCodeDataUrl ? (
-                <img 
-                  src={qrCodeDataUrl} 
-                  alt="Scannable Mother MCP QR Pass" 
-                  className="w-44 h-44 sm:w-48 sm:h-48 object-contain rounded-xl"
-                />
-              ) : (
-                <div className="w-44 h-44 flex items-center justify-center text-xs text-slate-500 font-bold">
-                  Generating Real QR...
-                </div>
-              )}
+              <HealthPassQr beneficiary={beneficiary} className="w-44 h-44 sm:w-48 sm:h-48" />
             </div>
 
             {/* Unique Beneficiary Details */}

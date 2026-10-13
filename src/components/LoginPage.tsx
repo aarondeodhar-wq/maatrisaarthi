@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { APK_DOWNLOAD_URL, APK_SIZE_LABEL } from '../core/appRelease';
 import { Language, UserRole } from '../types';
 import { 
   Heart, 
@@ -44,7 +45,6 @@ import { saveBeneficiaryToCloud } from '../core/offlineStore';
 import { calculateEDD, calculateGestationalWeeks, generateANCSchedule, toLocalDateString } from '../core/protocolEngine';
 import { predictMaternalRisk } from '../core/mlRiskEngine';
 import { createDefaultDPDPConsent } from '../core/dpdpCompliance';
-import { generateHealthPassQrCode } from '../core/qrEngine';
 
 interface LoginPageProps {
   onLoginSuccess: (profile: UserProfile) => void;
@@ -54,6 +54,8 @@ interface LoginPageProps {
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
   onOpenVoiceTutorial?: () => void;
+  // Android app: show only the login card (no landing hero or APK download links)
+  compactLayout?: boolean;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
@@ -63,7 +65,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onLanguageChange,
   theme,
   onToggleTheme,
-  onOpenVoiceTutorial
+  onOpenVoiceTutorial,
+  compactLayout = false
 }) => {
   // Tabs: 'SIGNIN' vs 'SIGNUP'
   const [activeTab, setActiveTab] = useState<'SIGNIN' | 'SIGNUP'>('SIGNIN');
@@ -398,14 +401,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         // Generate 8-ANC Schedule
         const ancSchedule = generateANCSchedule(signupLmp, signupVillage + ' PHC');
 
-        // Generate real 2D QR Code Token
-        const qrDataUrl = await generateHealthPassQrCode({
-          app: 'MAATRISAARTHI',
-          type: 'MOTHER_HEALTH_PASS',
-          beneficiaryId: beneficiaryId,
-          rchId: rchId,
-          timestamp: new Date().toISOString()
-        });
 
         const newBeneficiary: Beneficiary = {
           id: beneficiaryId,
@@ -437,7 +432,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           prescriptions: [],
           audioNotes: [],
           dpdpConsent: createDefaultDPDPConsent(language),
-          qrAuthToken: qrDataUrl,
+          qrAuthToken: '', // QR is generated on demand from the record ID
           accessPin: pin,
           ownerUid: profile.uid,
           registeredAt: new Date().toISOString(),
@@ -504,16 +499,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         {/* Action Controls: Android APK, Voice Guide, Night/Day & Language Switcher (Squircle Shapes) */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Download Android APK Direct Button */}
+          {!compactLayout && (
           <a
-            href="/maatrisaarthi.apk"
+            href={APK_DOWNLOAD_URL}
             download="MaatriSaarthi.apk"
             className="flex items-center gap-1 bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/40 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black hover:bg-emerald-500/30 hover:scale-105 transition cursor-pointer shadow-xs"
-            title="Download Official Android App (APK - 6.3 MB)"
+            title={`Download Android App (APK, ${APK_SIZE_LABEL})`}
           >
             <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             <span className="hidden sm:inline">{language === 'mr' ? 'Android ॲप' : language === 'hi' ? 'Android ऐप' : 'Android APK'}</span>
             <span className="sm:hidden">APK</span>
           </a>
+          )}
 
           {/* Voice Tutorial Button with Live Glow */}
           {onOpenVoiceTutorial && (
@@ -1447,6 +1444,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             LEFT COLUMN: HERO HEADLINE & 3 FEATURE CARDS + QUICK 1-CLICK DOCK
             (On Desktop: left column order-1; on Mobile: appears below login card order-2)
            ========================================================================= */}
+        {!compactLayout && (
         <div className="order-2 lg:order-1 lg:col-span-5 space-y-5 animate-fadeIn">
           {/* Big Headline */}
           <div className="space-y-2">
@@ -1507,10 +1505,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
             {/* Feat 4: Android App Direct Download Card */}
             <a
-              href="/maatrisaarthi.apk"
+              href={APK_DOWNLOAD_URL}
               download="MaatriSaarthi.apk"
               className="silky-card p-3.5 rounded-2xl flex items-center justify-between border-2 border-emerald-500/40 hover:border-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/15 transition group shadow-md cursor-pointer"
-              title="Download Android APK (6.3 MB)"
+              title={`Download Android App (APK, ${APK_SIZE_LABEL})`}
             >
               <div className="flex items-center gap-3.5">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 transition">
@@ -1522,7 +1520,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       {language === 'mr' ? 'Android ॲप डाउनलोड करा (APK)' : language === 'hi' ? 'Android ऐप डाउनलोड करें (APK)' : 'Download Android App (APK)'}
                     </h4>
                     <span className="text-[9px] font-black bg-emerald-600 text-white px-1.5 py-0.5 rounded-md">
-                      6.3 MB
+                      {APK_SIZE_LABEL}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-600 dark:text-slate-300">
@@ -1552,6 +1550,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </span>
           </a>
         </div>
+        )}
 
       </main>
 

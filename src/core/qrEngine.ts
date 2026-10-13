@@ -34,7 +34,8 @@ export async function generateHealthPassQrCode(
     };
     const jsonStr = JSON.stringify(passData);
     const encodedPayload = encodeURIComponent(btoa(unescape(encodeURIComponent(jsonStr))));
-    const universalUrl = `${baseUrl}/?mcp_pass=${encodedPayload}`;
+    // /pass is the path the Android app registers as an App Link (see AndroidManifest.xml)
+    const universalUrl = `${baseUrl}/pass?mcp_pass=${encodedPayload}`;
 
     const dataUrl = await QRCode.toDataURL(universalUrl, {
       width: 360,

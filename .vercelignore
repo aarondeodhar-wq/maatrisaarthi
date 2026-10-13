@@ -1,5 +1,8 @@
-# Exclude heavy build artifacts from Vercel deploy
+# Exclude Android build artifacts and local-only files from Vercel deploys.
+# public/maatrisaarthi.apk (the signed release) IS deployed for website download.
 android/
 .gradle/
-*.apk
-public/maatrisaarthi.apk
+archive/
+.idea/
+dist/
+.env.local

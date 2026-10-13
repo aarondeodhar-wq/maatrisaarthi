@@ -1,4 +1,5 @@
 import React from 'react';
+import { APK_DOWNLOAD_URL, APK_SIZE_LABEL } from '../core/appRelease';
 import { Language, UserRole } from '../types';
 import { 
   Heart, 
@@ -32,6 +33,7 @@ interface SidebarDrawerProps {
   currentTab: string;
   onTabChange: (tab: string) => void;
   onRoleChange?: (role: UserRole) => void;
+  hideApkDownload?: boolean;
   language: Language;
   onLanguageChange: (lang: Language) => void;
   theme: 'dark' | 'light';
@@ -53,6 +55,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
   currentTab,
   onTabChange,
   onRoleChange,
+  hideApkDownload = false,
   language,
   onLanguageChange,
   theme,
@@ -272,19 +275,21 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
 
         {/* Tier 3: Bottom Utilities, Language, & Logout */}
         <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-white/10 text-xs mt-4">
-          {/* Android APK Download Banner */}
+          {/* Android APK Download Banner (not shown inside the app itself) */}
+          {!hideApkDownload && (
           <a
-            href="/maatrisaarthi.apk"
+            href={APK_DOWNLOAD_URL}
             download="MaatriSaarthi.apk"
             className="w-full p-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/40 text-emerald-950 dark:text-emerald-300 font-black flex items-center justify-between transition cursor-pointer shadow-xs"
-            title="Download Android APK (6.3 MB)"
+            title={`Download Android App (APK, ${APK_SIZE_LABEL})`}
           >
             <div className="flex items-center gap-2">
               <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span>{language === 'mr' ? 'Android ॲप डाउनलोड (APK)' : language === 'hi' ? 'Android ऐप डाउनलोड (APK)' : 'Download Android App (APK)'}</span>
             </div>
-            <span className="text-[10px] bg-emerald-600 text-white px-1.5 py-0.5 rounded font-black">6.3 MB</span>
+            <span className="text-[10px] bg-emerald-600 text-white px-1.5 py-0.5 rounded font-black">{APK_SIZE_LABEL}</span>
           </a>
+          )}
 
           {/* 108 Emergency & Alerts */}
           <div className="grid grid-cols-2 gap-2">

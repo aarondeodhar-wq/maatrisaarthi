@@ -1,4 +1,5 @@
 import React from 'react';
+import { APK_DOWNLOAD_URL, APK_SIZE_LABEL } from '../core/appRelease';
 import { Language, UserRole } from '../types';
 import { 
   Heart, 
@@ -38,6 +39,7 @@ interface HeaderProps {
   activeRole: UserRole;
   userName: string;
   onLogout: () => void;
+  hideNavTabsOnLarge?: boolean;
   onOpenSidebar: () => void;
 }
 
@@ -53,7 +55,8 @@ export const Header: React.FC<HeaderProps> = ({
   activeRole,
   userName,
   onLogout,
-  onOpenSidebar
+  onOpenSidebar,
+  hideNavTabsOnLarge
 }) => {
   // Role-Specific Navigation Links
   const roleNavItems = [
@@ -181,7 +184,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Center Navigation Tabs (Squircle Style) */}
-          <nav id="tour-nav-tabs" className="hidden md:flex items-center bg-slate-200/80 dark:bg-black/50 p-1 rounded-2xl border border-slate-300 dark:border-teal-500/20 text-xs font-bold shadow-inner">
+          <nav id="tour-nav-tabs" className={`hidden md:flex ${hideNavTabsOnLarge ? "lg:hidden" : ""} items-center bg-slate-200/80 dark:bg-black/50 p-1 rounded-2xl border border-slate-300 dark:border-teal-500/20 text-xs font-bold shadow-inner`}>
             {roleNavItems.map(item => {
               const Icon = item.icon;
               const isActive = currentTab === item.id;
@@ -248,10 +251,10 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Android APK Download Option (Desktop Only) */}
             <a
-              href="/maatrisaarthi.apk"
+              href={APK_DOWNLOAD_URL}
               download="MaatriSaarthi.apk"
               className="hidden lg:flex items-center gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 px-2.5 py-1.5 rounded-xl text-xs font-black transition cursor-pointer border border-emerald-400/40 shadow-xs shrink-0 jiggly-spring"
-              title="Download Android App (APK - 6.3 MB)"
+              title={`Download Android App (APK, ${APK_SIZE_LABEL})`}
             >
               <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>{language === 'mr' ? 'Android ॲप' : language === 'hi' ? 'Android ऐप' : 'Android APK'}</span>

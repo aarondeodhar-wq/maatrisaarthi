@@ -43,7 +43,7 @@ import {
   Scan,
   X
 } from 'lucide-react';
-import { generateHealthPassQrCode, parseScannedQrPass } from '../core/qrEngine';
+import { HealthPassQr } from './HealthPassQr';
 import { LiveCameraScannerModal } from './LiveCameraScannerModal';
 
 interface FieldWorkerMobileViewProps {
@@ -93,34 +93,8 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
 
   // ASHA QR Camera Scanner & Offline PIN State
   const [ashaScanModalOpen, setAshaScanModalOpen] = useState(false);
-  const [scanSimulating, setScanSimulating] = useState(false);
-  const [pinInput, setPinInput] = useState('');
+  const [showPassQr, setShowPassQr] = useState(false);
   const [scanSuccessToast, setScanSuccessToast] = useState<string | null>(null);
-
-  const handleAshaScanSimulate = (target: Beneficiary) => {
-    setScanSimulating(true);
-    setTimeout(() => {
-      setScanSimulating(false);
-      setAshaScanModalOpen(false);
-      onSelectBeneficiary(target);
-      setScanSuccessToast(`✅ Decrypted digital pass for ${target.name} (RCH: ${target.rchId})`);
-      setTimeout(() => setScanSuccessToast(null), 3500);
-    }, 1000);
-  };
-
-  const handleAshaUnlockPin = () => {
-    const cleanPin = pinInput.trim();
-    const match = /^\d{4}$/.test(cleanPin) ? beneficiaries.find(b => b.accessPin === cleanPin) : undefined;
-    if (match) {
-      onSelectBeneficiary(match);
-      setAshaScanModalOpen(false);
-      setScanSuccessToast(`✅ PIN Verified: Dossier unlocked for ${match.name}`);
-      setTimeout(() => setScanSuccessToast(null), 3500);
-    } else {
-      setScanSuccessToast('❌ Incorrect PIN. Ask the mother for her 4-digit consent PIN.');
-      setTimeout(() => setScanSuccessToast(null), 3500);
-    }
-  };
 
   // Live Timer & Pill Reminder state
   const [pmsmaCountdownDays, setPmsmaCountdownDays] = useState(23);
@@ -530,12 +504,12 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
 
               <button
                 type="button"
-                onClick={() => setAshaScanModalOpen(true)}
+                onClick={() => setShowPassQr(true)}
                 className="bg-teal-500/15 hover:bg-teal-500/25 px-3 py-2 rounded-xl border border-teal-500/30 text-teal-900 dark:text-teal-200 shrink-0 shadow-xs cursor-pointer flex items-center gap-1.5 text-xs font-black transition"
-                title="Scan Mother MCP Pass"
+                title="Show this mother's MCP pass QR"
               >
                 <Camera className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                <span>{language === 'mr' ? 'स्कॅन करा' : language === 'hi' ? 'स्कैन करें' : 'Scan Mother'}</span>
+                <span>{language === 'mr' ? 'QR दाखवा' : language === 'hi' ? 'QR दिखाएं' : 'Show QR'}</span>
               </button>
             </div>
 
@@ -998,70 +972,38 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
         </div>
       </div>
 
-      {/* ASHA Live QR Scanner & PIN Decryptor Modal */}
-      {ashaScanModalOpen && (
+      {/* Real camera QR scanner (with PIN fallback) */}
+      <LiveCameraScannerModal
+        isOpen={ashaScanModalOpen}
+        onClose={() => setAshaScanModalOpen(false)}
+        language={language}
+        beneficiaries={beneficiaries}
+        onSelectBeneficiary={onSelectBeneficiary}
+        onScanSuccessToast={(msg) => {
+          setScanSuccessToast(msg);
+          setTimeout(() => setScanSuccessToast(null), 3500);
+        }}
+        scannerTitle={language === 'mr' ? 'मातेचा QR पास स्कॅन करा' : "Scan Mother's MCP Pass"}
+      />
+
+      {/* Selected mother's unique MCP pass QR (for mothers without the app) */}
+      {showPassQr && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200 dark:border-white/20 text-slate-900 dark:text-white">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
-              <div className="flex items-center gap-2">
-                <Camera className="w-5 h-5 text-rose-500" />
-                <h3 className="text-sm font-black">
-                  {language === 'mr' ? 'मातेचा QR पास स्कॅन करा' : 'Scan Mother\'s Digital MCP Pass'}
-                </h3>
-              </div>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-3 text-center border border-slate-200 dark:border-white/20 text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black truncate">{selectedBeneficiary.name}</h3>
               <button
-                onClick={() => setAshaScanModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300 flex items-center justify-center font-bold text-sm cursor-pointer"
+                type="button"
+                onClick={() => setShowPassQr(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-
-            {/* Viewfinder & Simulation */}
-            <div className="relative bg-slate-950 rounded-2xl h-56 flex flex-col items-center justify-center overflow-hidden border-2 border-dashed border-rose-500/80 p-4 text-center">
-              {scanSimulating ? (
-                <div className="space-y-3">
-                  <div className="w-12 h-12 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                  <p className="text-xs font-bold text-rose-300 animate-pulse">
-                    Decrypting Mother's Digital Pass & Vitals...
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  <Scan className="w-12 h-12 text-rose-400 mx-auto animate-pulse" />
-                  <p className="text-xs font-bold text-white">Align Mother's QR Code in Camera</p>
-                  <p className="text-[11px] text-slate-400">Scans encrypted maternal record & RCH token offline</p>
-                  <button
-                    type="button"
-                    onClick={() => handleAshaScanSimulate(selectedBeneficiary)}
-                    className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-black py-2.5 px-5 rounded-xl text-xs cursor-pointer shadow-lg mt-1 border border-white/20 transition active:scale-95"
-                  >
-                    ⚡ 1-Tap Auto-Scan ({selectedBeneficiary.name})
-                  </button>
-                </div>
-              )}
+            <div className="bg-white p-3 rounded-2xl inline-flex">
+              <HealthPassQr beneficiary={selectedBeneficiary} className="w-52 h-52" />
             </div>
-
-            <div className="text-center text-xs text-slate-500 font-bold">— OR ENTER OFFLINE 4-DIGIT PIN —</div>
-
-            {/* Offline PIN fallback input */}
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                maxLength={4}
-                value={pinInput}
-                onChange={e => setPinInput(e.target.value)}
-                placeholder="••••"
-                className="flex-1 text-center tracking-widest font-mono text-base font-black border border-slate-300 dark:border-white/20 rounded-xl p-2.5 bg-slate-50 dark:bg-black/50 text-slate-900 dark:text-white"
-              />
-              <button
-                type="button"
-                onClick={handleAshaUnlockPin}
-                className="bg-teal-600 hover:bg-teal-700 text-white font-black text-xs px-4 py-2.5 rounded-xl cursor-pointer shadow-md"
-              >
-                Unlock Pass
-              </button>
-            </div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-bold">RCH: {selectedBeneficiary.rchId}</p>
           </div>
         </div>
       )}

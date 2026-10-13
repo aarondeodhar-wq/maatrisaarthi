@@ -238,7 +238,7 @@ export const WardDashboard: React.FC<WardDashboardProps> = ({ beneficiaries, lan
             <span>Sub-Centre & Village Health Post Operational Matrix</span>
           </h3>
           <span className="text-xs text-teal-900 dark:text-teal-300 font-black bg-teal-100 dark:bg-teal-950/80 px-3 py-1 rounded-full border border-teal-300 dark:border-teal-500/30">
-            {subCentres.length} village groups • {totalAshas} ASHA workers on record
+            {subCentres.length} {subCentres.length === 1 ? 'village group' : 'village groups'} • {totalAshas} ASHA {totalAshas === 1 ? 'worker' : 'workers'} on record
           </span>
         </div>
 

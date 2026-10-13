@@ -20,11 +20,17 @@ import { DevicePermissionsModal } from './components/DevicePermissionsModal';
 import { AuthLoadingScreen } from './components/AuthLoadingScreen';
 import { PatientRecordConsentPortal } from './components/PatientRecordConsentPortal';
 import { parseScannedQrPass } from './core/qrEngine';
+import { isNativeApp } from './core/nativeAuth';
+import { App as CapacitorApp } from '@capacitor/app';
+import { isAppLayout } from './core/navigation';
+import { AppTopBar, AppBottomNav, WebSidebar } from './components/PlatformShell';
 import { recordDataAccessAudit } from './core/dpdpCompliance';
 import { sendFreeWhatsAppAlert, describeAlertOutcome, openEmergency108Dialer } from './core/freeAlertsService';
 import { PhoneCall } from 'lucide-react';
 
 export function App() {
+  // Android app (or ?layout=app): native-style layout. Website: desktop dashboard layout.
+  const [appLayout] = useState<boolean>(() => isAppLayout());
   const [showSplash, setShowSplash] = useState<boolean>(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -132,6 +138,20 @@ export function App() {
     } catch (e) {}
     return null;
   });
+
+  // Android App Link: a pass QR scanned with the phone camera opens the app with its URL
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    const handleUrl = (url?: string) => {
+      const payload = url ? parseScannedQrPass(url) : null;
+      if (payload) setPendingPassId(payload.beneficiaryId);
+    };
+    CapacitorApp.getLaunchUrl().then(res => handleUrl(res?.url)).catch(() => {});
+    const listener = CapacitorApp.addListener('appUrlOpen', event => handleUrl(event.url));
+    return () => {
+      listener.then(l => l.remove());
+    };
+  }, []);
 
   useEffect(() => {
     if (!pendingPassId || !authProfile || authProfile.role === 'MOTHER' || !authProfile.approved) return;
@@ -339,6 +359,7 @@ export function App() {
           theme={theme}
           onToggleTheme={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
           onOpenVoiceTutorial={() => setIsTourOpen(true)}
+          compactLayout={appLayout}
         />
 
         {/* Live Spotlight Pointer Tour with Real Red Arrow & Spoken Voice */}
@@ -367,10 +388,36 @@ export function App() {
 
   // 3. Logged In: Role-Tailored Platform Dashboard
   return (
-    <div className="min-h-screen font-sans flex flex-col justify-between selection:bg-teal-500 selection:text-slate-950 relative">
-      
-      {/* Top Application Header (Role Tailored) */}
+    <div className={`min-h-screen font-sans selection:bg-teal-500 selection:text-slate-950 relative ${appLayout ? '' : 'lg:flex'}`}>
+
+      {/* Website: persistent left sidebar on large screens */}
+      {!appLayout && (
+        <WebSidebar
+          language={language}
+          activeRole={activeRole}
+          currentTab={currentTab}
+          onTabChange={setCurrentTab}
+          userName={userName}
+          onLogout={handleLogout}
+          onOpenAlertCenter={() => setIsAlertCenterOpen(true)}
+        />
+      )}
+
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen">
+
+      {appLayout ? (
+        <AppTopBar
+          language={language}
+          activeRole={activeRole}
+          isOnline={isOnline}
+          pendingSyncCount={pendingSyncCount}
+          isSyncing={isSyncing}
+          onTriggerSync={handleTriggerSync}
+          onOpenAlertCenter={() => setIsAlertCenterOpen(true)}
+        />
+      ) : (
       <Header
+        hideNavTabsOnLarge
         currentTab={currentTab}
         onTabChange={setCurrentTab}
         language={language}
@@ -389,11 +436,13 @@ export function App() {
         onLogout={handleLogout}
         onOpenSidebar={() => setIsSidebarOpen(true)}
       />
+      )}
 
       {/* Slide-in 3-Tier Sidebar Drawer */}
       <SidebarDrawer
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        hideApkDownload={appLayout}
         currentTab={currentTab}
         onTabChange={setCurrentTab}
         language={language}
@@ -423,7 +472,7 @@ export function App() {
       )}
 
       {/* Main Screen Body: Filtered and Rendered Based on Active Role */}
-      <main className="max-w-7xl mx-auto w-full px-3 sm:px-6 py-6 flex-1 space-y-6">
+      <main className={appLayout ? 'w-full px-3 pt-4 pb-28 flex-1 space-y-6' : 'max-w-7xl mx-auto w-full px-3 sm:px-6 py-6 flex-1 space-y-6'}>
         
         {/* PATIENT / MOTHER ROLE: Dedicated Personal Pass & Health Dashboard */}
         {activeRole === 'MOTHER' && (
@@ -500,6 +549,9 @@ export function App() {
               language={language}
               onIssuePrescription={handleIssuePrescription}
               onDispatchNotification={() => {}}
+              doctorId={authProfile?.uid}
+              doctorName={userName}
+              facility={authProfile?.village || 'PHC'}
             />
           )
         )}
@@ -533,6 +585,18 @@ export function App() {
           )
         )}
       </main>
+      </div>
+
+      {/* Android app: bottom tab bar ("More" opens the drawer with settings and sign out) */}
+      {appLayout && (
+        <AppBottomNav
+          language={language}
+          activeRole={activeRole}
+          currentTab={currentTab}
+          onTabChange={setCurrentTab}
+          onOpenMore={() => setIsSidebarOpen(true)}
+        />
+      )}
 
       {/* Live Spotlight Pointer Tour with Real Red Arrow & Voice Speech */}
       {isTourOpen && (

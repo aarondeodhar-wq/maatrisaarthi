@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "gov.in.maatrisaarthi.app",
+      "sha256_cert_fingerprints": [
+        "78:65:5A:94:9E:5F:BF:36:F2:BB:00:C6:50:B0:DA:1E:DA:59:9D:5D:EE:3E:CE:BF:3C:86:A0:B7:A8:33:AF:9B",
+        "FC:B1:F0:98:1C:1F:27:6A:64:A8:F5:CA:22:A4:41:F9:CE:D1:03:DC:3A:AA:E2:17:7C:06:D6:91:8C:BB:55:D0"
+      ]
+    }
+  }
+]

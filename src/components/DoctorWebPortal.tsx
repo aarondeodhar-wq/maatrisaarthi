@@ -38,6 +38,10 @@ interface DoctorWebPortalProps {
   language: Language;
   onIssuePrescription: (beneficiaryId: string, rx: DoctorPrescription) => void;
   onDispatchNotification: (beneficiaryId: string, templateType: any, channel: 'SMS' | 'WHATSAPP') => void;
+  // Signed-in doctor (used on prescriptions and in the header)
+  doctorId?: string;
+  doctorName?: string;
+  facility?: string;
 }
 
 export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
@@ -46,8 +50,19 @@ export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
   onSelectBeneficiary,
   language,
   onIssuePrescription,
-  onDispatchNotification
+  onDispatchNotification,
+  doctorId = '',
+  doctorName = 'Medical Officer',
+  facility = 'PHC'
 }) => {
+  const [queueSearch, setQueueSearch] = useState('');
+  const riskOrder: Record<string, number> = { RED: 0, YELLOW: 1, GREEN: 2 };
+  const queue = beneficiaries
+    .filter(b => {
+      const q = queueSearch.trim().toLowerCase();
+      return !q || b.name.toLowerCase().includes(q) || b.rchId.toLowerCase().includes(q) || b.village.toLowerCase().includes(q);
+    })
+    .sort((a, b) => (riskOrder[a.currentRiskTier] ?? 3) - (riskOrder[b.currentRiskTier] ?? 3));
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [scanSimulating, setScanSimulating] = useState(false);
@@ -113,9 +128,9 @@ export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
     const newRx: DoctorPrescription = {
       id: 'rx_' + Math.random().toString(36).substring(2, 9),
       date: toLocalDateString(),
-      doctorId: 'doc_101',
-      doctorName: 'Dr. Rajesh Kulkarni (MBBS, DGO)',
-      facility: 'PHC Shirur / Sub-District Hospital',
+      doctorId,
+      doctorName,
+      facility,
       diagnosis: diagnosis || 'Clinical Review & ANC Management',
       medications: selectedMedPreset === 'IV_IRON' ? [
         { name: 'IV Iron Sucrose 100mg in 100ml NS', dosage: 'Alternate days x 3 doses', durationDays: 6 },
@@ -158,7 +173,7 @@ export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
             </div>
             <span className="text-xs font-bold text-slate-800 dark:text-slate-300 flex items-center gap-1.5">
               <Laptop className="w-3.5 h-3.5 text-blue-500" />
-              Primary Health Center • Medical Officer Station (PHC Shirur)
+              Medical Officer Station • {facility}
             </span>
           </div>
 
@@ -177,14 +192,14 @@ export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg sm:text-2xl font-black text-slate-950 dark:text-white tracking-tight">
-                  Dr. Rajesh Kulkarni <span className="text-xs font-bold text-slate-600 dark:text-slate-400">(MBBS, DGO)</span>
+                  {doctorName}
                 </h2>
                 <span className="text-[11px] bg-blue-100 dark:bg-blue-500/20 text-blue-900 dark:text-blue-300 border border-blue-300 dark:border-blue-400/30 font-black px-2.5 py-0.5 rounded-full">
                   PHC Medical Officer
                 </span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5">
-                Primary Health Centre (PHC) Shirur • First Referral Unit (FRU) Specialist Station
+                {facility}
               </p>
             </div>
           </div>
@@ -206,7 +221,7 @@ export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
       {/* Main Grid: Left Triage Queue & Right Clinical Dossier */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* LEFT COLUMN: HIGH RISK TRIAGE PRIORITY INBOX (4 Cols) */}
-        <div className="lg:col-span-4 space-y-4">
+        <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-6 self-start">
           <div id="tour-doctor-queue" className="silky-glass rounded-3xl p-5 shadow-xl space-y-3 border border-slate-200 dark:border-white/15">
             <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/10 pb-3">
               <h3 className="text-xs font-black text-slate-950 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
@@ -218,9 +233,20 @@ export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
               </span>
             </div>
 
-            {/* Queue List */}
-            <div className="space-y-2.5 max-h-[620px] overflow-y-auto pr-1">
-              {beneficiaries.map(b => {
+            <input
+              type="search"
+              value={queueSearch}
+              onChange={e => setQueueSearch(e.target.value)}
+              placeholder={language === 'mr' ? 'नाव, RCH किंवा गाव शोधा' : language === 'hi' ? 'नाम, RCH या गाँव खोजें' : 'Search name, RCH ID or village'}
+              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-white/15 bg-white dark:bg-black/40 text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400"
+            />
+
+            {/* Queue List (highest risk first) */}
+            <div className="space-y-2.5 max-h-[calc(100vh-16rem)] min-h-[200px] overflow-y-auto pr-1">
+              {queue.length === 0 && (
+                <p className="text-xs font-bold text-slate-500 text-center py-6">No mothers match your search.</p>
+              )}
+              {queue.map(b => {
                 const isSelected = b.id === selectedBeneficiary.id;
                 return (
                   <div
@@ -566,7 +592,7 @@ export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
                   type="button"
                   onClick={async () => {
                     const medText = selectedMedPreset === 'IV_IRON' ? 'IV Iron Sucrose 100mg + Calcium 500mg' : selectedMedPreset === 'LABETALOL_HTN' ? 'Tab Labetalol 100mg BD' : selectedMedPreset === 'INSULIN_GDM' ? 'Human Mixtard Insulin SC' : 'Tab IFA Red (100mg Iron) + Tab Calcium 500mg';
-                    const text = `🏥 *PHC E-Prescription / औषध चिठ्ठी*\nPatient: ${selectedBeneficiary.name} (RCH: ${selectedBeneficiary.rchId})\nDiagnosis: ${diagnosis || 'Maternal ANC Checkup'}\nRx Medicines: ${medText}\nAdvice: ${specialInstructions || 'Take nutritious food & rest.'}\n- Dr. Rajesh Kulkarni (PHC Shirur)`;
+                    const text = `🏥 *PHC E-Prescription / औषध चिठ्ठी*\nPatient: ${selectedBeneficiary.name} (RCH: ${selectedBeneficiary.rchId})\nDiagnosis: ${diagnosis || 'Maternal ANC Checkup'}\nRx Medicines: ${medText}\nAdvice: ${specialInstructions || 'Take nutritious food & rest.'}\n- ${doctorName} (${facility})`;
                     const res = await sendFreeWhatsAppAlert({
                       recipientPhone: selectedBeneficiary.phone,
                       recipientName: selectedBeneficiary.name,
@@ -587,7 +613,7 @@ export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
                   type="button"
                   onClick={async () => {
                     const medText = selectedMedPreset === 'IV_IRON' ? 'IV Iron Sucrose' : selectedMedPreset === 'LABETALOL_HTN' ? 'Tab Labetalol 100mg' : selectedMedPreset === 'INSULIN_GDM' ? 'Insulin' : 'Tab IFA + Calcium';
-                    const text = `PHC Rx for ${selectedBeneficiary.name}: ${diagnosis || 'ANC'}. Meds: ${medText}. Advice: ${specialInstructions || 'Take IFA daily'}. - Dr. Rajesh Kulkarni`;
+                    const text = `PHC Rx for ${selectedBeneficiary.name}: ${diagnosis || 'ANC'}. Meds: ${medText}. Advice: ${specialInstructions || 'Take IFA daily'}. - ${doctorName}`;
                     const res = await sendFreeSmsAlert({
                       recipientPhone: selectedBeneficiary.phone,
                       recipientName: selectedBeneficiary.name,

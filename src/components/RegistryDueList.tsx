@@ -199,14 +199,17 @@ export const RegistryDueList: React.FC<RegistryDueListProps> = ({
                     </td>
 
                     <td className="p-4">
-                      <div className="font-mono font-black text-slate-950 dark:text-white text-xs">
-                        Hb: <span className={b.vitalsHistory[0]?.hemoglobin < 7 ? 'text-rose-600 dark:text-rose-400 font-black' : ''}>{b.vitalsHistory[0]?.hemoglobin}</span> • BP: {b.vitalsHistory[0]?.systolicBP}/{b.vitalsHistory[0]?.diastolicBP}
+                      <div className="font-mono font-black text-slate-950 dark:text-white text-xs whitespace-nowrap">
+                        Hb <span className={b.vitalsHistory[0]?.hemoglobin < 7 ? 'text-rose-600 dark:text-rose-400 font-black' : ''}>{b.vitalsHistory[0]?.hemoglobin ?? '-'}</span>
                       </div>
-                      <div className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">Recorded: {b.vitalsHistory[0]?.date}</div>
+                      <div className="font-mono font-black text-slate-950 dark:text-white text-xs whitespace-nowrap">
+                        BP {b.vitalsHistory[0] ? `${b.vitalsHistory[0].systolicBP}/${b.vitalsHistory[0].diastolicBP}` : '-'}
+                      </div>
+                      <div className="text-[11px] text-slate-600 dark:text-slate-400 font-medium whitespace-nowrap">{b.vitalsHistory[0]?.date || 'No vitals yet'}</div>
                     </td>
 
                     <td className="p-4">
-                      <div className="font-bold text-slate-950 dark:text-white">ANC {nextContact.contactNo}: {nextContact.title[language] || nextContact.title.en}</div>
+                      <div className="font-bold text-slate-950 dark:text-white">{nextContact.title[language] || nextContact.title.en}</div>
                       <div className={`text-[11px] font-bold ${
                         nextContact.status === 'OVERDUE' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400'
                       }`}>
@@ -268,7 +271,7 @@ export const RegistryDueList: React.FC<RegistryDueListProps> = ({
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="font-bold text-slate-900 dark:text-white text-sm">
-                        ANC Contact {c.contactNo}: {c.title[language]} ({c.targetWeek} Weeks)
+                        {c.title[language]} ({c.targetWeek} Weeks)
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">{c.assignedFacility}</p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
