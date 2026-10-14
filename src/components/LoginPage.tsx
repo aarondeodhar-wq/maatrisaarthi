@@ -474,12 +474,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       {/* Top Application Header (Responsive & Compact) */}
       <header className="max-w-7xl mx-auto w-full flex flex-wrap items-center justify-between gap-3 py-2">
         <div className="flex items-center gap-3">
-          {/* macOS 3 Window Traffic Dots */}
-          <div className="flex items-center gap-1.5 mr-1">
-            <span className="w-3 h-3 rounded-full bg-rose-500 inline-block shadow-xs" />
-            <span className="w-3 h-3 rounded-full bg-amber-400 inline-block shadow-xs" />
-            <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block shadow-xs" />
-          </div>
 
           <img 
             src="/logo.png" 
@@ -731,7 +725,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   </span>
 
                   {/* Method Tab Pills */}
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div id="tour-method-tabs" className="grid grid-cols-3 gap-1.5">
                     {/* Phone Tab */}
                     <button
                       type="button"

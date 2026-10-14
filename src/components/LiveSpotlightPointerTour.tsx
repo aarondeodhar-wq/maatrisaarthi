@@ -17,7 +17,7 @@ import {
   Lock,
   PhoneCall
 } from 'lucide-react';
-import { speakTutorialAudio, stopTutorialAudio } from '../core/voiceTutorialService';
+import { speakTutorialAudio, stopTutorialAudio, unlockAudioPipeline } from '../core/voiceTutorialService';
 
 export interface SpotlightStep {
   id: string;
@@ -55,6 +55,13 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
   const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
+  // Mobile browsers/WebViews block speech until the user has tapped something. The tour auto-opens,
+  // so it stays silent until the first tap (Next, Back, or the speaker button).
+  const [audioReady, setAudioReady] = useState<boolean>(false);
+  const markAudioReady = () => {
+    unlockAudioPipeline();
+    setAudioReady(true);
+  };
 
   // Sync tour role with platform activeRole when tour opens
   useEffect(() => {
@@ -106,22 +113,22 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
         },
         {
           id: 'step_auth',
-          targetId: 'tour-verify-method',
-          badge: 'Step 2 of 5 • Fast Sign In',
+          targetId: 'tour-method-tabs',
+          badge: 'Step 2 of 5 • Sign In',
           title: {
-            mr: '२. जलद १-टॅप व्हेरिफिकेशन (Fast Login)',
-            hi: '2. तेज 1-टैप सत्यापन (Fast Login)',
-            en: '2. 1-Tap Fast Identity Verification'
+            mr: '२. सुरक्षित लॉगिन पद्धत (Sign-in Method)',
+            hi: '2. सुरक्षित लॉगिन विधि (Sign-in Method)',
+            en: '2. Choose a Sign-in Method'
           },
           desc: {
-            mr: 'Truecaller, मोबाईल OTP किंवा WhatsApp द्वारे १ सेकंदात सुरक्षित लॉगिन करा.',
-            hi: 'Truecaller, मोबाइल OTP या WhatsApp द्वारा 1 सेकंड में सुरक्षित लॉगिन करें।',
-            en: 'Authenticate in 1 second via Truecaller, SMS OTP, WhatsApp verification, or Biometric touch.'
+            mr: 'मोबाईल OTP, Google किंवा पासवर्डने सुरक्षित लॉगिन करा.',
+            hi: 'मोबाइल OTP, Google या पासवर्ड से सुरक्षित लॉगिन करें।',
+            en: 'Sign in securely with an SMS OTP, your Google account, or a password.'
           },
           spokenText: {
-            mr: 'पायरी २: ट्रूकॉलर, फोन ओटीपी किंवा व्हॉट्सॲप द्वारे एका सेकंदात लॉगिन करा.',
-            hi: 'चरण 2: ट्रूकॉलर, फोन ओटीपी या व्हाट्सऐप द्वारा एक सेकंड में लॉगिन करें।',
-            en: 'Step 2: Sign in instantly in one second using Truecaller, Phone OTP, or WhatsApp.'
+            mr: 'पायरी २: मोबाईल ओटीपी, गूगल किंवा पासवर्डने लॉगिन करा.',
+            hi: 'चरण 2: मोबाइल ओटीपी, गूगल या पासवर्ड से लॉगिन करें।',
+            en: 'Step 2: Sign in using a phone OTP, Google, or a password.'
           },
           arrowDirection: 'left'
         },
@@ -135,14 +142,14 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
             en: '3. 1-Click 108 Emergency Ambulance SOS'
           },
           desc: {
-            mr: 'कोणत्याही तातडीच्या प्रसूती अडचणीत १-क्लिक करून थेट GPS सह १०८ रुग्णवाहिका बोलवा.',
-            hi: 'आपातकालीन प्रसव स्थिति में 1-क्लिक करके सीधे जीपीएस सहित 108 एम्बुलेंस बुलाएं।',
-            en: 'Tap anytime during maternal emergencies to dispatch 108 ambulance with live GPS telemetry.'
+            mr: 'आपत्कालीन प्रसंगी १०८ वर कॉल करण्यासाठी फोनचा डायलर उघडतो. कॉल तुम्हाला स्वतः करावा लागतो.',
+            hi: 'आपात स्थिति में 108 पर कॉल के लिए फोन का डायलर खुलता है। कॉल आपको स्वयं करना होगा।',
+            en: 'Opens your phone dialer for 108 in an emergency. You must place the call yourself.'
           },
           spokenText: {
-            mr: 'पायरी ३: आपत्कालीन प्रसंगी या लाल १०८ बटनावर क्लिक करून तात्काळ रुग्णवाहिका बोलवा.',
-            hi: 'चरण 3: आपात स्थिति में इस लाल 108 बटन पर क्लिक करके तुरंत एम्बुलेंस बुलाएं।',
-            en: 'Step 3: In an obstetric emergency, tap this red 108 button for instant ambulance dispatch.'
+            mr: 'पायरी 3: आपत्कालीन प्रसंगी हे लाल १०८ बटन दाबा. फोनचा डायलर उघडेल, कॉल तुम्ही स्वतः करा.',
+            hi: 'चरण 3: आपात स्थिति में यह लाल 108 बटन दबाएं। फोन का डायलर खुलेगा, कॉल आप स्वयं करें।',
+            en: 'Step 3: In an emergency, tap this red 108 button. Your phone dialer opens, and you place the call yourself.'
           },
           arrowDirection: 'top'
         },
@@ -267,14 +274,14 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
             en: '4. 1-Click 108 Emergency Ambulance SOS'
           },
           desc: {
-            mr: 'कोणत्याही तातडीच्या प्रसूती अडचणीत थेट GPS सह १०८ रुग्णवाहिका बोलवा.',
-            hi: 'आपातकालीन प्रसव स्थिति में सीधे जीपीएस लोकेशन सहित 108 एम्बुलेंस बुलाएं।',
-            en: 'Tap anytime during emergencies to dispatch a 108 ambulance directly to your live GPS coordinates.'
+            mr: 'आपत्कालीन प्रसंगी १०८ वर कॉल करण्यासाठी फोनचा डायलर उघडतो. कॉल तुम्हाला स्वतः करावा लागतो.',
+            hi: 'आपात स्थिति में 108 पर कॉल के लिए फोन का डायलर खुलता है। कॉल आपको स्वयं करना होगा।',
+            en: 'Opens your phone dialer for 108 in an emergency. You must place the call yourself.'
           },
           spokenText: {
-            mr: 'पायरी ४: आपत्कालीन प्रसंगी या लाल १०८ बटनावर क्लिक करून तात्काळ रुग्णवाहिका बोलवा.',
-            hi: 'चरण 4: आपात स्थिति में इस लाल 108 बटन पर क्लिक करके तुरंत एम्बुलेंस बुलाएं।',
-            en: 'Step 4: Tap this red 108 button anytime for emergency ambulance dispatch.'
+            mr: 'पायरी 4: आपत्कालीन प्रसंगी हे लाल १०८ बटन दाबा. फोनचा डायलर उघडेल, कॉल तुम्ही स्वतः करा.',
+            hi: 'चरण 4: आपात स्थिति में यह लाल 108 बटन दबाएं। फोन का डायलर खुलेगा, कॉल आप स्वयं करें।',
+            en: 'Step 4: In an emergency, tap this red 108 button. Your phone dialer opens, and you place the call yourself.'
           },
           arrowDirection: 'bottom'
         },
@@ -399,14 +406,14 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
             en: '5. 108 Emergency Ambulance Hotline'
           },
           desc: {
-            mr: 'गंभीर रक्तस्राव किंवा झटके आढळल्यास थेट जीपीएस सह १०८ रुग्णवाहिका dispatch करा.',
-            hi: 'गंभीर रक्तस्राव या दौरे होने पर सीधे जीपीएस सहित 108 एम्बुलेंस बुलाएं।',
-            en: 'Trigger priority 108 ambulance dispatch with real-time GPS coordinates for critical maternal signs.'
+            mr: 'आपत्कालीन प्रसंगी १०८ वर कॉल करण्यासाठी फोनचा डायलर उघडतो. कॉल तुम्हाला स्वतः करावा लागतो.',
+            hi: 'आपात स्थिति में 108 पर कॉल के लिए फोन का डायलर खुलता है। कॉल आपको स्वयं करना होगा।',
+            en: 'Opens your phone dialer for 108 in an emergency. You must place the call yourself.'
           },
           spokenText: {
-            mr: 'पायरी ५: कोणत्याही गंभीर धोक्याच्या वेळी थेट १०८ रुग्णवाहिका आणि PHC डॉक्टरला अलर्ट करा.',
-            hi: 'चरण 5: किसी भी आपात स्थिति में सीधे 108 एम्बुलेंस और डॉक्टर को सूचित करें।',
-            en: 'Step 5: Tap here to dispatch an emergency ambulance and alert the PHC Medical Officer.'
+            mr: 'पायरी 5: आपत्कालीन प्रसंगी हे लाल १०८ बटन दाबा. फोनचा डायलर उघडेल, कॉल तुम्ही स्वतः करा.',
+            hi: 'चरण 5: आपात स्थिति में यह लाल 108 बटन दबाएं। फोन का डायलर खुलेगा, कॉल आप स्वयं करें।',
+            en: 'Step 5: In an emergency, tap this red 108 button. Your phone dialer opens, and you place the call yourself.'
           },
           arrowDirection: 'bottom'
         }
@@ -582,7 +589,7 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
       const rect = el.getBoundingClientRect();
       setTargetRect(rect);
       // Scroll element gently into view if needed
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      el.scrollIntoView({ behavior: 'smooth', block: window.innerWidth < 768 ? 'center' : 'nearest', inline: 'nearest' });
     } else {
       setTargetRect(null);
     }
@@ -606,7 +613,7 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
 
   // Play voice audio when step changes
   useEffect(() => {
-    if (isOpen && audioEnabled && currentStep) {
+    if (isOpen && audioEnabled && audioReady && currentStep) {
       const text = currentStep.spokenText[language];
       setIsPlayingAudio(true);
       speakTutorialAudio(
@@ -619,9 +626,10 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
     return () => {
       stopTutorialAudio();
     };
-  }, [currentStepIndex, isOpen, language, audioEnabled, selectedTourRole]);
+  }, [currentStepIndex, isOpen, language, audioEnabled, audioReady, selectedTourRole]);
 
   const handleNext = () => {
+    markAudioReady();
     if (currentStepIndex < steps.length - 1) {
       setCurrentStepIndex(prev => prev + 1);
     } else {
@@ -630,6 +638,7 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
   };
 
   const handleBack = () => {
+    markAudioReady();
     if (currentStepIndex > 0) {
       setCurrentStepIndex(prev => prev - 1);
     }
@@ -647,6 +656,7 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
 
   const handleReplay = () => {
     if (!currentStep) return;
+    markAudioReady();
     const text = currentStep.spokenText[language];
     setIsPlayingAudio(true);
     speakTutorialAudio(
@@ -690,12 +700,29 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
     const isMobile = window.innerWidth < 768;
 
     if (isMobile) {
-      // Mobile / Tablet Thumb Dock at bottom
-      tooltipStyle.bottom = 16;
+      // Mobile: put the card above or below the highlighted element, whichever side has more
+      // room, so it never covers what it is pointing at. Scrolls if the card is taller than the gap.
+      const gap = 14;
+      const spaceAbove = targetRect.top - gap;
+      const spaceBelow = window.innerHeight - targetRect.bottom - gap;
       tooltipStyle.left = '50%';
       tooltipStyle.transform = 'translateX(-50%)';
       tooltipStyle.width = 'min(94vw, 400px)';
-      arrowType = targetRect.top > window.innerHeight / 2 ? 'BOTTOM_TO_TOP' : 'TOP_TO_BOTTOM';
+      tooltipStyle.overflowY = 'auto';
+      if (Math.max(spaceAbove, spaceBelow) >= 200) {
+        if (spaceBelow >= spaceAbove) {
+          tooltipStyle.top = targetRect.bottom + gap;
+          tooltipStyle.maxHeight = Math.min(spaceBelow - 8, 440);
+        } else {
+          tooltipStyle.bottom = window.innerHeight - targetRect.top + gap;
+          tooltipStyle.maxHeight = Math.min(spaceAbove - 8, 440);
+        }
+      } else {
+        // Very tall target: compact card docked at the bottom
+        tooltipStyle.bottom = 12;
+        tooltipStyle.maxHeight = '42vh';
+      }
+      arrowType = 'TOP_TO_BOTTOM';
     } else if (spaceRight >= 450) {
       // Place right of element
       tooltipStyle.top = Math.max(20, Math.min(window.innerHeight - 380, targetRect.top - 20));
@@ -779,12 +806,12 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
             height: targetRect.height + 12,
             borderRadius: 18
           }}
-          className="pointer-events-none ring-4 ring-rose-500/90 dark:ring-teal-400 shadow-[0_0_30px_rgba(244,63,94,0.8)] animate-pulse transition-all duration-300 z-50"
+          className="pointer-events-none ring-4 ring-rose-500/90 dark:ring-teal-400 shadow-[0_0_30px_rgba(244,63,94,0.8)] tour-pulse transition-all duration-300 z-50"
         />
       )}
 
-      {/* RED POINTER ARROW */}
-      {targetRect && (
+      {/* RED POINTER ARROW (hidden on phones) */}
+      {targetRect && window.innerWidth >= 768 && (
         <svg 
           className="fixed inset-0 w-full h-full pointer-events-none z-50 overflow-visible"
           style={{ filter: 'drop-shadow(0px 4px 10px rgba(225, 29, 72, 0.7))' }}
@@ -808,7 +835,7 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
           </defs>
 
           {arrowType === 'LEFT_TO_RIGHT' && (
-            <g className="animate-pulse">
+            <g className="tour-pulse">
               <path
                 d={`M ${Math.max(16, targetRect.left - 130)} ${targetRect.top + targetRect.height / 2 + 10} Q ${targetRect.left - 70} ${targetRect.top + targetRect.height / 2 - 15} ${targetRect.left - 14} ${targetRect.top + targetRect.height / 2}`}
                 stroke="#fda4af"
@@ -829,7 +856,7 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
           )}
 
           {arrowType === 'TOP_TO_BOTTOM' && (
-            <g className="animate-pulse">
+            <g className="tour-pulse">
               <path
                 d={`M ${targetRect.left + targetRect.width / 2 - 15} ${targetRect.bottom + 55} Q ${targetRect.left + targetRect.width / 2 + 10} ${targetRect.bottom + 35} ${targetRect.left + targetRect.width / 2} ${targetRect.bottom + 14}`}
                 stroke="#fda4af"
@@ -850,7 +877,7 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
           )}
 
           {arrowType === 'RIGHT_TO_LEFT' && (
-            <g className="animate-pulse">
+            <g className="tour-pulse">
               <path
                 d={`M ${targetRect.right + 130} ${targetRect.top + targetRect.height / 2 + 10} Q ${targetRect.right + 70} ${targetRect.top + targetRect.height / 2 - 15} ${targetRect.right + 14} ${targetRect.top + targetRect.height / 2}`}
                 stroke="#fda4af"
@@ -871,7 +898,7 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
           )}
 
           {arrowType === 'BOTTOM_TO_TOP' && (
-            <g className="animate-pulse">
+            <g className="tour-pulse">
               <path
                 d={`M ${targetRect.left + targetRect.width / 2 - 15} ${targetRect.top - 55} Q ${targetRect.left + targetRect.width / 2 + 10} ${targetRect.top - 35} ${targetRect.left + targetRect.width / 2} ${targetRect.top - 14}`}
                 stroke="#fda4af"
@@ -998,7 +1025,7 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
                 else handleReplay();
               }}
               className={`p-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                isPlayingAudio ? 'bg-rose-600 text-white animate-pulse' : 'bg-white/10 text-slate-300'
+                isPlayingAudio ? 'bg-rose-600 text-white tour-pulse' : 'bg-white/10 text-slate-300'
               }`}
               title="Stop/Play Voice"
             >

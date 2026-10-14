@@ -2,10 +2,46 @@
 
 @custom-variant dark (&:where(.theme-dark, .theme-dark *));
 
+/* =========================================================================
+   CLINICAL DESIGN SYSTEM
+   Flat white surfaces, hairline borders, one teal accent, no motion for show.
+   Components keep their existing class names (silky-card, btn-pill-primary, ...);
+   this file is the single place that decides how they look.
+   ========================================================================= */
+
 :root {
-  --ios-spring-snappy: cubic-bezier(0.16, 1, 0.3, 1);
-  --ios-spring-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --macos-smooth-ease: cubic-bezier(0.25, 1, 0.5, 1);
+  --bg: #f4f7f9;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --border: #dde5ec;
+  --border-strong: #c3cfda;
+  --text: #0f1f2e;
+  --text-muted: #51657a;
+  --accent: #0f766e;
+  --accent-hover: #115e59;
+  --accent-soft: #e3f4f1;
+  --danger: #b42318;
+  --shadow-sm: 0 1px 2px rgba(15, 31, 46, 0.06);
+  --shadow-md: 0 4px 14px -4px rgba(15, 31, 46, 0.12);
+  --radius-card: 14px;
+  --radius-control: 10px;
+}
+
+html.theme-dark,
+body.theme-dark {
+  --bg: #0c141b;
+  --surface: #131d26;
+  --surface-muted: #182430;
+  --border: #243442;
+  --border-strong: #35495a;
+  --text: #e8eef3;
+  --text-muted: #9bb0c1;
+  --accent: #2dd4bf;
+  --accent-hover: #5eead4;
+  --accent-soft: rgba(45, 212, 191, 0.12);
+  --danger: #f97066;
+  --shadow-sm: none;
+  --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.6);
 }
 
 @layer base {
@@ -19,7 +55,6 @@
     overflow-y: auto;
     width: 100%;
     max-width: 100vw;
-    scroll-behavior: smooth;
     text-size-adjust: 100%;
     -webkit-text-size-adjust: 100%;
     -webkit-font-smoothing: antialiased;
@@ -27,501 +62,275 @@
   }
 
   body {
-    @apply antialiased transition-colors duration-300;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans Devanagari", sans-serif;
+    @apply antialiased;
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", "Noto Sans Devanagari", sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
     min-height: 100vh;
-    min-height: -webkit-fill-available;
     width: 100%;
     max-width: 100vw;
     overflow-x: hidden;
-    overflow-y: auto;
     margin: 0;
     padding: 0;
     position: relative;
-    -webkit-overflow-scrolling: touch;
+  }
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.01em;
   }
 }
 
-/* macOS & iOS Smooth Scrollbar Styling */
+html.theme-light,
+body.theme-light,
+html.theme-dark,
+body.theme-dark {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+/* Keyboard focus is always visible */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Scrollbars */
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
+  background: var(--border-strong);
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: padding-box;
-  transition: background 0.2s ease;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(20, 184, 166, 0.65);
-  background-clip: padding-box;
 }
 
 /* =========================================================================
-   AUTHENTIC APPLE iOS / macOS HUMAN INTERFACE SYSTEM (DAY & NIGHT)
+   SURFACES
    ========================================================================= */
 
-/* DAY MODE: Clean Apple macOS / iOS Cupertino Glass (System Gray 6 + Frosted Acrylic) */
-html.theme-light,
-body.theme-light {
-  background-color: #f2f2f7;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(0, 122, 255, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(48, 176, 199, 0.08) 0px, transparent 45%),
-    radial-gradient(at 50% 100%, rgba(255, 45, 85, 0.04) 0px, transparent 60%);
-  background-attachment: fixed;
-  color: #1d1d1f !important;
+.reference-hero-card,
+.silky-glass,
+.macos-glass {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-card) !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 
-/* Day Mode Crisp Apple SF Typography */
-.theme-light h1,
-.theme-light h2,
-.theme-light h3,
-.theme-light h4,
-.theme-light h5,
-.theme-light h6 {
-  color: #1d1d1f;
+.reference-sub-card,
+.silky-card {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.silky-card:hover,
+.reference-sub-card:hover {
+  border-color: var(--border-strong) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* =========================================================================
+   TYPE ACCENTS
+   ========================================================================= */
+
+.hero-headline-gradient {
+  color: var(--text);
+  font-weight: 800;
   letter-spacing: -0.02em;
 }
 
-.theme-light p,
-.theme-light span,
-.theme-light label {
-  color: inherit;
-}
-
-.theme-light .text-slate-900,
-.theme-light .text-slate-950 {
-  color: #1d1d1f !important;
-}
-
-.theme-light .text-slate-800 {
-  color: #2c2c2e !important;
-}
-
-.theme-light .text-slate-700 {
-  color: #3a3a3c !important;
-}
-
-.theme-light .text-slate-600 {
-  color: #636366 !important;
-}
-
-.theme-light .text-slate-500 {
-  color: #8e8e93 !important;
-}
-
-/* NIGHT MODE: Apple Pro OLED Pure Dark & Elevated Materials */
-body.theme-dark {
-  background-color: #000000;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(10, 132, 255, 0.12) 0px, transparent 50%),
-    radial-gradient(at 100% 15%, rgba(94, 230, 226, 0.09) 0px, transparent 45%),
-    radial-gradient(at 50% 100%, rgba(88, 86, 214, 0.08) 0px, transparent 55%);
-  background-attachment: fixed;
-  color: #f5f5f7;
-}
-
-/* =========================================================================
-   APPLE FROSTED ACRYLIC & LIQUID GLASS SURFACES
-   ========================================================================= */
-
-/* DAY MODE: Pure White Apple Card & Frosted Vibrancy */
-.theme-light .reference-hero-card,
-.theme-light .silky-glass,
-.theme-light .macos-glass {
-  background: rgba(255, 255, 255, 0.85) !important;
-  border-radius: 24px !important;
-  border: 1px solid rgba(0, 0, 0, 0.07) !important;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 
-              0 1px 3px rgba(0, 0, 0, 0.03) !important;
-  backdrop-filter: blur(28px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
-}
-
-.theme-light .reference-sub-card,
-.theme-light .silky-card {
-  background: #ffffff !important;
-  border-radius: 18px !important;
-  border: 1px solid rgba(0, 0, 0, 0.06) !important;
-  box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.04), 
-              0 1px 2px rgba(0, 0, 0, 0.02) !important;
-}
-
-/* NIGHT MODE: Apple Pro Translucent Dark Material */
-.theme-dark .reference-hero-card,
-.theme-dark .silky-glass,
-.theme-dark .macos-glass {
-  background: rgba(28, 28, 30, 0.78) !important;
-  border-radius: 24px !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  backdrop-filter: blur(28px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1),
-              0 12px 36px -4px rgba(0, 0, 0, 0.6) !important;
-}
-
-.theme-dark .reference-sub-card,
-.theme-dark .silky-card {
-  background: rgba(44, 44, 46, 0.65) !important;
-  border-radius: 18px !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4) !important;
-}
-
-/* =========================================================================
-   ELECTRIC GRADIENT TYPOGRAPHY & TAGS (1:1 Reference Match)
-   ========================================================================= */
-
-/* Headline Gradient Text */
-.theme-light .hero-headline-gradient {
-  background: linear-gradient(135deg, #0f172a 0%, #0f766e 60%, #0284c7 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-}
-
-.theme-dark .hero-headline-gradient {
-  background: linear-gradient(135deg, #ffffff 0%, #a5f3fc 30%, #38bdf8 65%, #c084fc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-}
-
-/* Headline Top Biscuit Tag Pill */
 .headline-tag-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.35rem 1rem;
+  padding: 0.25rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  background: rgba(45, 212, 191, 0.12);
-  color: #0d9488;
-  border: 1px solid rgba(45, 212, 191, 0.35);
-  box-shadow: 0 0 15px rgba(45, 212, 191, 0.1);
-}
-
-.theme-dark .headline-tag-pill {
-  background: rgba(13, 148, 136, 0.2);
-  color: #5eead4;
-  border-color: rgba(45, 212, 191, 0.35);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid transparent;
 }
 
 /* =========================================================================
-   165 FPS / 120 FPS ULTRA HIGH REFRESH RATE DISPLAY & GPU COMPOSITING
+   BUTTONS
    ========================================================================= */
 
-.gpu-layer,
-.reference-hero-card,
-.reference-sub-card,
-.silky-glass,
-.macos-glass,
-.silky-card,
 .btn-pill-primary,
-.jiggly-spring,
-.jiggly-card {
-  transform: translate3d(0, 0, 0);
-  -webkit-transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  perspective: 1000px;
-  contain: paint layout;
-  will-change: transform, box-shadow, opacity;
-}
-
-/* =========================================================================
-   ULTRA-PREMIUM JIGGLY SPRING PHYSICS (Apple Framer-Grade Dynamic Springs)
-   ========================================================================= */
-
-@keyframes jigglyWobble {
-  0% {
-    transform: scale(1) translateY(0) rotate(0deg);
-  }
-  20% {
-    transform: scale(1.035) translateY(-3px) rotate(-1.2deg);
-  }
-  45% {
-    transform: scale(1.025) translateY(-2.5px) rotate(1deg);
-  }
-  70% {
-    transform: scale(1.02) translateY(-2px) rotate(-0.5deg);
-  }
-  100% {
-    transform: scale(1.02) translateY(-2px) rotate(0deg);
-  }
-}
-
-@keyframes elasticJelly {
-  0% {
-    transform: scale(1, 1);
-  }
-  30% {
-    transform: scale(1.08, 0.92);
-  }
-  60% {
-    transform: scale(0.94, 1.06);
-  }
-  80% {
-    transform: scale(1.02, 0.98);
-  }
-  100% {
-    transform: scale(1, 1);
-  }
-}
-
-@keyframes sosEmergencyPulse {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7), 0 10px 25px -5px rgba(225, 29, 72, 0.5);
-  }
-  50% {
-    transform: scale(1.03) translateY(-1px);
-    box-shadow: 0 0 0 10px rgba(225, 29, 72, 0), 0 15px 35px -5px rgba(225, 29, 72, 0.7);
-  }
-}
-
-/* Jiggly Spring Hover & Active Classes */
-.jiggly-spring,
-.silky-card,
-.reference-sub-card {
-  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), 
-              box-shadow 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), 
-              border-color 0.2s ease;
-}
-
-.jiggly-spring:hover,
-.silky-card:hover {
-  transform: scale(1.02) translateY(-2.5px);
-  box-shadow: 0 14px 30px -8px rgba(15, 23, 42, 0.12), 
-              0 0 20px rgba(20, 184, 166, 0.12);
-}
-
-.jiggly-wobble:hover {
-  animation: jigglyWobble 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-/* =========================================================================
-   AUTHENTIC APPLE TACTILE JIGGLE & DAMPED SPRING PHYSICS
-   ========================================================================= */
-
-@keyframes appleJiggleHover {
-  0% {
-    transform: scale(1) rotate(0deg);
-  }
-  20% {
-    transform: scale(1.035) rotate(-1.5deg) translateY(-2px);
-  }
-  40% {
-    transform: scale(1.035) rotate(1.5deg) translateY(-2px);
-  }
-  60% {
-    transform: scale(1.025) rotate(-0.75deg) translateY(-1.5px);
-  }
-  80% {
-    transform: scale(1.025) rotate(0.75deg) translateY(-1px);
-  }
-  100% {
-    transform: scale(1.025) rotate(0deg) translateY(-1.5px);
-  }
-}
-
-@keyframes sosEmergencyPulse {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7), 0 8px 20px -4px rgba(255, 59, 48, 0.4);
-  }
-  50% {
-    transform: scale(1.035) translateY(-1px);
-    box-shadow: 0 0 0 8px rgba(255, 59, 48, 0), 0 12px 28px -4px rgba(255, 59, 48, 0.6);
-  }
-}
-
-/* Jiggly Spring Hover & Active Classes */
-.jiggly-spring,
-.silky-card,
-.reference-sub-card {
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), 
-              box-shadow 0.25s ease, 
-              border-color 0.2s ease;
-}
-
-.jiggly-spring:hover,
-.silky-card:hover {
-  animation: appleJiggleHover 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.12), 
-              0 0 16px rgba(0, 122, 255, 0.14);
-}
-
-.jiggly-wobble:hover {
-  animation: appleJiggleHover 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-.jiggly-spring:active,
-.silky-card:active,
-.btn-pill-primary:active,
-.btn-pill-secondary:active,
-button:active {
-  transform: scale(0.95) translateY(1px) !important;
-  transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-
-.sos-pulse-animation {
-  animation: sosEmergencyPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Apple Cupertino Buttons */
-.btn-pill-primary {
-  background: #007aff;
-  color: #ffffff !important;
-  font-weight: 700;
-  border-radius: 9999px;
-  min-height: 40px;
-  padding: 0.55rem 1.35rem;
-  font-size: 0.8125rem;
-  box-shadow: 0 4px 12px -2px rgba(0, 122, 255, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+.btn-pill-secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, filter 0.15s ease;
+  min-height: 40px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  border-radius: var(--radius-control);
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-pill-primary {
+  background: var(--accent);
+  color: #ffffff !important;
+  border: 1px solid var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-dark .btn-pill-primary {
+  color: #04211d !important;
 }
 
 .btn-pill-primary:hover {
-  animation: appleJiggleHover 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  box-shadow: 0 8px 20px -2px rgba(0, 122, 255, 0.55);
-  filter: brightness(1.06);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .btn-pill-secondary {
-  background: rgba(0, 0, 0, 0.05);
-  color: #1d1d1f !important;
-  font-weight: 600;
-  border-radius: 9999px;
-  min-height: 40px;
-  padding: 0.55rem 1.35rem;
-  font-size: 0.8125rem;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  backdrop-filter: blur(16px);
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease;
-  cursor: pointer;
-}
-
-.theme-dark .btn-pill-secondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: #f5f5f7 !important;
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: none;
+  background: var(--surface);
+  color: var(--text) !important;
+  border: 1px solid var(--border-strong);
 }
 
 .btn-pill-secondary:hover {
-  animation: appleJiggleHover 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  background: var(--surface-muted);
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* 108 SOS: a steady red button; it pulses only for users who allow motion */
+.sos-pulse-animation {
+  animation: sosPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes sosPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(180, 35, 24, 0.45); }
+  50% { box-shadow: 0 0 0 6px rgba(180, 35, 24, 0); }
 }
 
 /* =========================================================================
-   TOP TELEMETRY BAR & VERTICAL SCROLL DOCK (1:1 Reference Match)
+   APP SHELL (website layout)
    ========================================================================= */
 
-/* Top Black Ticker Bar */
-.telemetry-ticker-bar {
-  background: #02070d;
-  color: #94a3b8;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.6875rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+/* In the components layer so Tailwind utilities (hidden, lg:hidden) can override display */
+@layer components {
+.shell-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-control);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-/* Vertical Scroll Dock on Far Right (Hidden on mobile < 768px) */
-@media (max-width: 767px) {
-  .reference-vertical-dock {
-    display: none !important;
+.shell-nav-item:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.shell-nav-item[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.shell-nav-item[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: -0.75rem;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+}
+
+.shell-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.shell-icon-btn:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.shell-seg {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.shell-seg button {
+  padding: 0.25rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.shell-seg button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+}
+
+/* =========================================================================
+   MOTION
+   ========================================================================= */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.18s ease-out;
+}
+
+/* Tour highlight pulse */
+@keyframes tourPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.tour-pulse {
+  animation: tourPulse 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation: none !important;
+    transition: none !important;
   }
-}
-
-.reference-vertical-dock {
-  position: fixed;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 30;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35), 0 10px 30px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(30px);
-  border-radius: 9999px;
-  padding: 10px 6px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.theme-light .reference-vertical-dock {
-  background: rgba(255, 255, 255, 0.88);
-  border-color: #e2e8f0;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
-}
-
-.dock-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 9999px;
-  background: rgba(148, 163, 184, 0.5);
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-  cursor: pointer;
-}
-
-.dock-dot:hover {
-  transform: scale(1.5);
-  background: #2dd4bf;
-}
-
-.dock-dot.active {
-  height: 18px;
-  background: #0d9488;
-  box-shadow: 0 0 10px #0d9488;
-}
-
-/* Floating AI Bot Pill at Bottom Right */
-.floating-ai-bot-pill {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 40;
-  background: #09131e;
-  border: 1px solid #14b8a6;
-  box-shadow: 0 0 20px rgba(20, 184, 166, 0.3), 0 10px 30px rgba(0, 0, 0, 0.4);
-  color: #ffffff;
-  padding: 0.65rem 1.25rem;
-  border-radius: 9999px;
-  font-weight: 800;
-  font-size: 0.8125rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.floating-ai-bot-pill:hover {
-  transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 0 30px rgba(20, 184, 166, 0.5);
 }

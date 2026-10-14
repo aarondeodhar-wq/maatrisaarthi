@@ -4,7 +4,6 @@ import { auth, UserProfile, subscribeToAuthProfile, signOutUser } from './core/f
 import { MOCK_BENEFICIARIES } from './data/mockMaternalData';
 import { getLocalBeneficiaries, saveLocalBeneficiaries, getPendingSyncMutations, queueOfflineMutation, processSyncQueue, subscribeToLiveMothers, PendingSyncMutation } from './core/offlineStore';
 import { SplashScreen } from './components/SplashScreen';
-import { Header } from './components/Header';
 import { SidebarDrawer } from './components/SidebarDrawer';
 import { LoginPage } from './components/LoginPage';
 import { HeroOverviewSection } from './components/HeroOverviewSection';
@@ -23,7 +22,8 @@ import { parseScannedQrPass } from './core/qrEngine';
 import { isNativeApp } from './core/nativeAuth';
 import { App as CapacitorApp } from '@capacitor/app';
 import { isAppLayout } from './core/navigation';
-import { AppTopBar, AppBottomNav, WebSidebar } from './components/PlatformShell';
+import { AppTopBar, AppBottomNav } from './components/PlatformShell';
+import { WebSidebar, WebTopBar } from './components/WebShell';
 import { recordDataAccessAudit } from './core/dpdpCompliance';
 import { sendFreeWhatsAppAlert, describeAlertOutcome, openEmergency108Dialer } from './core/freeAlertsService';
 import { logVisit } from './core/visitLog';
@@ -34,7 +34,7 @@ export function App() {
   const [appLayout] = useState<boolean>(() => isAppLayout());
   const [showSplash, setShowSplash] = useState<boolean>(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(false);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => (isAppLayout() ? 'dark' : 'light'));
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>(() => {
     const local = getLocalBeneficiaries();
     if (local && local.length > 0) return local;
@@ -446,24 +446,20 @@ export function App() {
           onOpenAlertCenter={() => setIsAlertCenterOpen(true)}
         />
       ) : (
-      <Header
-        hideNavTabsOnLarge
-        currentTab={currentTab}
-        onTabChange={setCurrentTab}
+      <WebTopBar
         language={language}
         onLanguageChange={setLanguage}
         theme={theme}
         onToggleTheme={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
+        activeRole={activeRole}
+        currentTab={currentTab}
         isOnline={isOnline}
         onToggleOnline={() => setIsOnline(!isOnline)}
         pendingSyncCount={pendingSyncCount}
-        onTriggerSync={handleTriggerSync}
         isSyncing={isSyncing}
+        onTriggerSync={handleTriggerSync}
         onOpenAlertCenter={() => setIsAlertCenterOpen(true)}
         onOpenVoiceTutorial={() => setIsTourOpen(true)}
-        activeRole={activeRole}
-        userName={userName}
-        onLogout={handleLogout}
         onOpenSidebar={() => setIsSidebarOpen(true)}
       />
       )}
@@ -502,7 +498,7 @@ export function App() {
       )}
 
       {/* Main Screen Body: Filtered and Rendered Based on Active Role */}
-      <main className={appLayout ? 'w-full px-3 pt-4 pb-28 flex-1 space-y-6' : 'max-w-7xl mx-auto w-full px-3 sm:px-6 py-6 flex-1 space-y-6'}>
+      <main className={appLayout ? 'w-full px-3 pt-4 pb-28 flex-1 space-y-6' : 'max-w-[1400px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 flex-1 space-y-6'}>
         
         {/* PATIENT / MOTHER ROLE: Dedicated Personal Pass & Health Dashboard */}
         {activeRole === 'MOTHER' && (
