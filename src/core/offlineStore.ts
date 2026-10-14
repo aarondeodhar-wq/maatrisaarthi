@@ -1,16 +1,16 @@
-import { Beneficiary, VitalRecord, DoctorPrescription } from '../types';
-import { db, UserProfile } from './firebaseAuth';
+import { Beneficiary, VitalRecord, DoctorPrescription, VisitLog } from '../types';
+import { auth, db, UserProfile } from './firebaseAuth';
 import { createDefaultDPDPConsent } from './dpdpCompliance';
-import { doc, setDoc, collection, onSnapshot, query, where } from 'firebase/firestore';
+import { doc, setDoc, collection, onSnapshot, query, where, serverTimestamp, getDoc } from 'firebase/firestore';
 
 export interface PendingSyncMutation {
   id: string;
-  type: 'REGISTER_BENEFICIARY' | 'RECORD_VITALS' | 'UPDATE_CONSENT' | 'ISSUE_PRESCRIPTION';
+  type: 'REGISTER_BENEFICIARY' | 'RECORD_VITALS' | 'UPDATE_CONSENT' | 'ISSUE_PRESCRIPTION' | 'VISIT_LOG';
   beneficiaryId: string;
   timestamp: string;
   // record: full beneficiary after the change. vital / prescription: the item added.
   // (Older builds queued the bare beneficiary / vital / prescription; writeMutation handles both.)
-  payload: { record?: Beneficiary; vital?: VitalRecord; prescription?: DoctorPrescription } | any;
+  payload: { record?: Beneficiary; vital?: VitalRecord; prescription?: DoctorPrescription; visit?: VisitLog } | any;
   retryCount: number;
   lastError?: string;
 }
@@ -140,11 +140,27 @@ async function writeMutation(m: PendingSyncMutation): Promise<void> {
   const record: Beneficiary | undefined = p.record || (m.type === 'REGISTER_BENEFICIARY' ? p : undefined);
   const now = new Date().toISOString();
 
+  if (m.type === 'VISIT_LOG') {
+    // syncedAt is the server's clock; firestore.rules requires it to equal request.time
+    const visit: VisitLog = p.visit;
+    const ref = doc(db, 'visit_logs', visit.id);
+    try {
+      await setDoc(ref, { ...toFirestoreData(visit), syncedAt: serverTimestamp() });
+    } catch (err: any) {
+      // Rows are write-once. If an earlier attempt reached the server but its reply was lost,
+      // the retry is refused as an update; the row exists, so the visit is already recorded.
+      if (err?.code === 'permission-denied' && (await getDoc(ref)).exists()) return;
+      throw err;
+    }
+    return;
+  }
+
   if (m.type === 'RECORD_VITALS') {
     const vital: VitalRecord = p.vital || p;
     await setDoc(doc(db, 'vitals_logs', vital.id || `vital_${m.id}`), toFirestoreData({
       beneficiaryId: m.beneficiaryId,
       ...vital,
+      recordedByUid: vital.recordedByUid || auth.currentUser?.uid,
       syncStatus: 'SYNCED',
       syncedAt: now
     }));
@@ -241,7 +257,8 @@ export async function processSyncQueue(
  * are kept even if they are not in the cloud yet.
  */
 export function mergeCloudWithLocal(cloud: Beneficiary[], local: Beneficiary[]): Beneficiary[] {
-  const pendingIds = new Set(getPendingSyncMutations().map(m => m.beneficiaryId));
+  // A queued visit log does not change the mother's record, so it must not pin the local copy
+  const pendingIds = new Set(getPendingSyncMutations().filter(m => m.type !== 'VISIT_LOG').map(m => m.beneficiaryId));
   const localById = new Map(local.map(b => [b.id, b]));
   const merged = cloud.map(c => (pendingIds.has(c.id) && localById.has(c.id) ? localById.get(c.id)! : c));
   const cloudIds = new Set(cloud.map(c => c.id));

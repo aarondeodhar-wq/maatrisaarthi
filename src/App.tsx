@@ -26,6 +26,7 @@ import { isAppLayout } from './core/navigation';
 import { AppTopBar, AppBottomNav, WebSidebar } from './components/PlatformShell';
 import { recordDataAccessAudit } from './core/dpdpCompliance';
 import { sendFreeWhatsAppAlert, describeAlertOutcome, openEmergency108Dialer } from './core/freeAlertsService';
+import { logVisit } from './core/visitLog';
 import { PhoneCall } from 'lucide-react';
 
 export function App() {
@@ -159,6 +160,8 @@ export function App() {
     if (matched) {
       setConsentModalBeneficiary(matched);
       setPendingPassId(null);
+      // Opened from the phone camera / App Link: no PIN was entered, so it is logged unverified
+      logVisit(authProfile, matched, 'SCAN_QR', false, isOnline);
     }
   }, [pendingPassId, authProfile, beneficiaries]);
 
@@ -222,26 +225,53 @@ export function App() {
   const handleAddVitalsRecord = (beneficiaryId: string, vital: VitalRecord) => {
     const target = beneficiaries.find(b => b.id === beneficiaryId);
     if (!target) return;
+    // The author is the signed-in account, never a name typed or hardcoded in the form
+    const signed: VitalRecord = authProfile
+      ? {
+          ...vital,
+          recordedBy: authProfile.role === 'ASHA_WORKER' ? `${authProfile.name} (ASHA)` : authProfile.name,
+          recordedByUid: authProfile.uid,
+          recordedAt: new Date().toISOString()
+        }
+      : vital;
     const updated: Beneficiary = {
       ...target,
-      currentRiskTier: vital.riskTier,
-      mlRiskScore: vital.mlRiskScore,
-      riskFactors: vital.riskReasons,
-      vitalsHistory: [vital, ...target.vitalsHistory]
+      currentRiskTier: signed.riskTier,
+      mlRiskScore: signed.mlRiskScore,
+      riskFactors: signed.riskReasons,
+      vitalsHistory: [signed, ...target.vitalsHistory]
     };
     setBeneficiaries(prev => prev.map(b => (b.id === beneficiaryId ? updated : b)));
-    queueChange('RECORD_VITALS', updated, { vital });
+    queueChange('RECORD_VITALS', updated, { vital: signed });
+    logVisit(authProfile, target, 'RECORD_VITALS', false, isOnline);
   };
 
   // Handler: Register new mother
   const handleRegisterBeneficiary = (registered: Beneficiary) => {
     // A mother registered by an ASHA worker is assigned to that ASHA worker
-    const newB: Beneficiary = authProfile?.role === 'ASHA_WORKER'
-      ? { ...registered, assignedAshaUid: authProfile.uid }
+    const isAsha = authProfile?.role === 'ASHA_WORKER';
+    const newB: Beneficiary = isAsha && authProfile
+      ? {
+          ...registered,
+          assignedAshaUid: authProfile.uid,
+          assignedAsha: { name: authProfile.name, phone: authProfile.phone },
+          vitalsHistory: registered.vitalsHistory.map(v => ({
+            ...v,
+            recordedBy: `${authProfile.name} (ASHA)`,
+            recordedByUid: authProfile.uid,
+            recordedAt: new Date().toISOString()
+          }))
+        }
       : registered;
     setBeneficiaries(prev => [newB, ...prev.filter(b => b.id !== newB.id)]);
     setSelectedBeneficiaryId(newB.id);
     queueChange('REGISTER_BENEFICIARY', newB);
+    if (isAsha) logVisit(authProfile, newB, 'REGISTER_MOTHER', false, isOnline);
+  };
+
+  // Handler: an ASHA worker opened a mother's record by QR scan or PIN unlock
+  const handleLogVisit = (b: Beneficiary, action: 'SCAN_QR' | 'PIN_UNLOCK', verified: boolean) => {
+    logVisit(authProfile, b, action, verified, isOnline);
   };
 
   // Handler: Issue Doctor e-Prescription
@@ -510,6 +540,7 @@ export function App() {
               beneficiaries={beneficiaries}
               selectedBeneficiary={selectedBeneficiary}
               onSelectBeneficiary={(b) => setSelectedBeneficiaryId(b.id)}
+              onLogVisit={handleLogVisit}
               language={language}
               onAddVitalsRecord={handleAddVitalsRecord}
               onRegisterBeneficiary={handleRegisterBeneficiary}

@@ -43,6 +43,7 @@ import {
   Scan,
   X
 } from 'lucide-react';
+import { getCurrentGeo } from '../core/visitLog';
 import { HealthPassQr } from './HealthPassQr';
 import { LiveCameraScannerModal } from './LiveCameraScannerModal';
 
@@ -50,6 +51,7 @@ interface FieldWorkerMobileViewProps {
   beneficiaries: Beneficiary[];
   selectedBeneficiary: Beneficiary;
   onSelectBeneficiary: (b: Beneficiary) => void;
+  onLogVisit: (b: Beneficiary, action: 'SCAN_QR' | 'PIN_UNLOCK', verified: boolean) => void;
   language: Language;
   onAddVitalsRecord: (beneficiaryId: string, vital: VitalRecord) => void;
   onRegisterBeneficiary: (newB: Beneficiary) => void;
@@ -62,6 +64,7 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
   beneficiaries,
   selectedBeneficiary,
   onSelectBeneficiary,
+  onLogVisit,
   language,
   onAddVitalsRecord,
   onRegisterBeneficiary,
@@ -178,9 +181,12 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
     setActiveTab('CARD_TRIAGE');
   };
 
-  const handleRegisterNewMother = (e: React.FormEvent) => {
+  const handleRegisterNewMother = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName || !regLmp) return;
+
+    // The registration GPS fix is the mother's home; later visits are measured from it
+    const homeLocation = await getCurrentGeo();
 
     const weeks = calculateGestationalWeeks(regLmp);
     const edd = calculateEDD(regLmp);
@@ -246,6 +252,7 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
       dpdpConsent: createDefaultDPDPConsent(language, true, true, true),
       qrAuthToken: `MS-AUTH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
       accessPin: `${Math.floor(1000 + Math.random() * 9000)}`,
+      ...(homeLocation ? { homeLocation } : {}),
       registeredAt: toLocalDateString(),
       lastSyncedAt: new Date().toISOString()
     };
@@ -979,6 +986,7 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
         language={language}
         beneficiaries={beneficiaries}
         onSelectBeneficiary={onSelectBeneficiary}
+        onVisitVerified={onLogVisit}
         onScanSuccessToast={(msg) => {
           setScanSuccessToast(msg);
           setTimeout(() => setScanSuccessToast(null), 3500);

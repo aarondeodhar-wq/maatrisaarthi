@@ -52,9 +52,33 @@ export interface VitalRecord {
   mlRiskScore: number;      // 0.0 to 1.0 probability
   riskTier: RiskTier;
   riskReasons: string[];
-  recordedBy: string;       // ASHA name or Doctor
+  recordedBy: string;       // ASHA name or Doctor (display only)
+  recordedByUid?: string;   // Firebase uid of the signed-in staff member who recorded it (enforced by firestore.rules)
+  recordedAt?: string;      // ISO timestamp of when it was recorded on the device
   facility: string;
   syncStatus: 'LOCAL' | 'SYNCED' | 'CONFLICT';
+}
+
+export interface GeoPoint {
+  lat: number;
+  lng: number;
+  accuracy: number;         // metres
+}
+
+// How a visit was recorded. QR and PIN actions open a mother's record; the others write to it.
+export type VisitAction = 'SCAN_QR' | 'PIN_UNLOCK' | 'RECORD_VITALS' | 'REGISTER_MOTHER';
+
+// One row of visit_logs/{id}: written once, never edited. ashaUid is checked against
+// request.auth.uid by firestore.rules, and syncedAt is the server's own clock.
+export interface VisitLog {
+  id: string;
+  ashaUid: string;
+  ashaName: string;
+  beneficiaryId: string;
+  action: VisitAction;
+  verified: boolean;        // true when the mother's consent PIN was entered at the visit
+  clientAt: string;         // device time of the visit (ISO)
+  geo?: GeoPoint;           // absent when location was denied or unavailable
 }
 
 export interface ANCContact {
@@ -153,6 +177,7 @@ export interface Beneficiary {
   accessPin: string;        // 4-digit offline consent unlock PIN (e.g. "4829")
   ownerUid?: string;        // Firebase uid of the mother's own account, if she self-registered
   assignedAshaUid?: string; // Firebase uid of the ASHA worker responsible for this mother
+  homeLocation?: GeoPoint;  // GPS fix taken at registration; visit distances are measured from here
   registeredAt: string;
   lastSyncedAt: string;
 }

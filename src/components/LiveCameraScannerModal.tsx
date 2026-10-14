@@ -22,6 +22,8 @@ interface LiveCameraScannerModalProps {
   language: Language;
   beneficiaries: Beneficiary[];
   onSelectBeneficiary: (beneficiary: Beneficiary) => void;
+  // Called once per opened record. verified is true only when the mother's PIN was entered.
+  onVisitVerified?: (beneficiary: Beneficiary, action: 'SCAN_QR' | 'PIN_UNLOCK', verified: boolean) => void;
   onScanSuccessToast?: (msg: string) => void;
   scannerTitle?: string;
 }
@@ -32,6 +34,7 @@ export const LiveCameraScannerModal: React.FC<LiveCameraScannerModalProps> = ({
   language,
   beneficiaries,
   onSelectBeneficiary,
+  onVisitVerified,
   onScanSuccessToast,
   scannerTitle
 }) => {
@@ -40,6 +43,9 @@ export const LiveCameraScannerModal: React.FC<LiveCameraScannerModalProps> = ({
   const [pinInput, setPinInput] = useState<string>('');
   const [scanStatus, setScanStatus] = useState<'IDLE' | 'SCANNING' | 'DECRYPTING' | 'SUCCESS'>('IDLE');
   const [detectedPass, setDetectedPass] = useState<MotherHealthPassPayload | null>(null);
+  // A scanned pass waiting for the mother's PIN, which proves she was at the visit
+  const [pendingMatch, setPendingMatch] = useState<Beneficiary | null>(null);
+  const [visitPin, setVisitPin] = useState<string>('');
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -51,6 +57,8 @@ export const LiveCameraScannerModal: React.FC<LiveCameraScannerModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       stopCameraStream();
+      setPendingMatch(null);
+      setVisitPin('');
       return;
     }
 
@@ -183,16 +191,46 @@ export const LiveCameraScannerModal: React.FC<LiveCameraScannerModalProps> = ({
         return;
       }
 
+      // A QR can be photographed and replayed later, so the visit only counts as verified
+      // once the mother gives her PIN.
       setTimeout(() => {
-        onSelectBeneficiary(matched);
-        if (onScanSuccessToast) onScanSuccessToast(`✓ Verified MCP Pass: ${matched.name} (${matched.rchId})`);
-        onClose();
-      }, 750);
+        setVisitPin('');
+        setPendingMatch(matched);
+        setScanStatus('IDLE');
+      }, 400);
     } else {
       // Not a valid MaatriSaarthi QR
       setScanStatus('SCANNING');
       animationFrameRef.current = requestAnimationFrame(startFrameProcessing);
     }
+  };
+
+  const finishVisit = (b: Beneficiary, action: 'SCAN_QR' | 'PIN_UNLOCK', verified: boolean) => {
+    onVisitVerified?.(b, action, verified);
+    onSelectBeneficiary(b);
+    if (onScanSuccessToast) {
+      onScanSuccessToast(verified
+        ? `✓ Visit verified with PIN: ${b.name} (${b.rchId})`
+        : `Opened ${b.name} (${b.rchId}). Visit NOT verified: no PIN entered.`);
+    }
+    onClose();
+  };
+
+  const handleConfirmVisitPin = () => {
+    if (!pendingMatch) return;
+    if (visitPin.trim() === pendingMatch.accessPin) {
+      setCameraError(null);
+      finishVisit(pendingMatch, 'SCAN_QR', true);
+    } else {
+      setCameraError('Incorrect PIN. Ask the mother for her 4-digit consent PIN.');
+    }
+  };
+
+  const cancelPendingMatch = () => {
+    setPendingMatch(null);
+    setVisitPin('');
+    setCameraError(null);
+    startRealCamera();
   };
 
   // Fallback 4-Digit Offline PIN Unlock
@@ -205,27 +243,18 @@ export const LiveCameraScannerModal: React.FC<LiveCameraScannerModalProps> = ({
     if (matched) {
       setCameraError(null);
       setScanStatus('SUCCESS');
-      setTimeout(() => {
-        onSelectBeneficiary(matched);
-        if (onScanSuccessToast) onScanSuccessToast(`✓ Pass Unlocked via PIN: ${matched.name}`);
-        onClose();
-      }, 500);
+      setTimeout(() => finishVisit(matched, 'PIN_UNLOCK', true), 500);
     } else {
       setCameraError('Incorrect PIN. Ask the mother for her 4-digit consent PIN.');
     }
   };
 
-  // Quick 1-Tap Simulation for Clinical Demos
+  // Quick pick of a sample mother; still needs her PIN like a real scan
   const handleQuickDemoScan = (b: Beneficiary) => {
-    setScanStatus('DECRYPTING');
-    setTimeout(() => {
-      setScanStatus('SUCCESS');
-      setTimeout(() => {
-        onSelectBeneficiary(b);
-        if (onScanSuccessToast) onScanSuccessToast(`✓ Scanned Pass: ${b.name} (${b.rchId})`);
-        onClose();
-      }, 500);
-    }, 400);
+    stopCameraStream();
+    setVisitPin('');
+    setPendingMatch(b);
+    setScanStatus('IDLE');
   };
 
   if (!isOpen) return null;
@@ -314,8 +343,40 @@ export const LiveCameraScannerModal: React.FC<LiveCameraScannerModalProps> = ({
             </div>
           )}
 
+          {/* Visit confirmation: mother's PIN */}
+          {pendingMatch && (
+            <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-4 text-center space-y-2 z-20">
+              <ShieldCheck className="w-8 h-8 text-teal-400" />
+              <p className="text-xs font-black text-white">{pendingMatch.name} • RCH {pendingMatch.rchId}</p>
+              <p className="text-[11px] text-slate-300 font-bold">
+                {language === 'mr' ? 'भेट सिद्ध करण्यासाठी मातेचा ४-अंकी पिन टाका' : "Enter the mother's 4-digit PIN to confirm you are at this visit"}
+              </p>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                value={visitPin}
+                onChange={e => setVisitPin(e.target.value.replace(/\D/g, ''))}
+                placeholder="••••"
+                className="w-32 text-center tracking-widest font-mono text-base font-black border border-white/20 rounded-xl p-2 bg-black/60 text-white placeholder:text-slate-500 focus:ring-2 focus:ring-teal-400 outline-none"
+              />
+              {cameraError && <p className="text-[11px] font-bold text-rose-400">{cameraError}</p>}
+              <div className="flex gap-2">
+                <button type="button" onClick={handleConfirmVisitPin} className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-black text-xs px-4 py-2 rounded-xl cursor-pointer">
+                  {language === 'mr' ? 'पडताळा' : 'Confirm visit'}
+                </button>
+                <button type="button" onClick={() => finishVisit(pendingMatch, 'SCAN_QR', false)} className="bg-white/10 hover:bg-white/20 text-slate-200 font-bold text-[11px] px-3 py-2 rounded-xl cursor-pointer">
+                  {language === 'mr' ? 'पिन शिवाय उघडा' : 'Open without PIN'}
+                </button>
+                <button type="button" onClick={cancelPendingMatch} className="bg-white/10 hover:bg-white/20 text-slate-200 font-bold text-[11px] px-3 py-2 rounded-xl cursor-pointer">
+                  {language === 'mr' ? 'मागे' : 'Back'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Camera Permission Denied / Error Fallback UI */}
-          {!cameraActive && scanStatus === 'IDLE' && (
+          {!cameraActive && scanStatus === 'IDLE' && !pendingMatch && (
             <div className="p-4 text-center space-y-2 text-slate-300">
               <CameraOff className="w-10 h-10 mx-auto text-rose-400" />
               <p className="text-xs font-bold text-slate-200">

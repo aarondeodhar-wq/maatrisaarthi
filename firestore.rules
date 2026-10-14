@@ -96,9 +96,33 @@ service cloud.firestore {
     }
 
     // ---------- Clinical logs ----------
+    // recordedByUid is the audit trail for who entered a reading: staff can only write
+    // their own uid, and an ASHA worker's entry can never be rewritten afterwards
+    // (only the sync bookkeeping fields may change on a retry).
     match /vitals_logs/{vitalId} {
-      allow read: if isClinicalLead();
-      allow create, update: if isStaff();
+      allow read: if isClinicalLead()
+        || (isApprovedRole('ASHA_WORKER') && resource.data.recordedByUid == request.auth.uid);
+      allow create: if isStaff() && request.resource.data.recordedByUid == request.auth.uid;
+      allow update: if isClinicalLead()
+        || (isApprovedRole('ASHA_WORKER')
+          && resource.data.recordedByUid == request.auth.uid
+          && request.resource.data.recordedByUid == request.auth.uid
+          && changedKeys().hasOnly(['syncedAt', 'syncStatus']));
+      allow delete: if isApprovedRole('WARD_OFFICER');
+    }
+
+    // ---------- Visit audit log ----------
+    // One row per QR scan / PIN unlock / vitals entry / registration by an ASHA worker.
+    // ashaUid must be the caller and syncedAt must be the server's clock, so a worker
+    // cannot log a visit as someone else or backdate when it reached the server.
+    // Rows are write-once: no update, and only a Ward Officer can delete.
+    match /visit_logs/{visitId} {
+      allow read: if isClinicalLead()
+        || (isApprovedRole('ASHA_WORKER') && resource.data.ashaUid == request.auth.uid);
+      allow create: if isApprovedRole('ASHA_WORKER')
+        && request.resource.data.ashaUid == request.auth.uid
+        && request.resource.data.syncedAt == request.time;
+      allow update: if false;
       allow delete: if isApprovedRole('WARD_OFFICER');
     }
 
