@@ -249,12 +249,19 @@ export const LiveCameraScannerModal: React.FC<LiveCameraScannerModalProps> = ({
     }
   };
 
-  // Quick pick of a sample mother; still needs her PIN like a real scan
+  // Quick 1-Tap Simulation for Clinical Demos. Opens the record at once, so the
+  // visit is logged as unverified (no PIN) and shows as such on the supervisor dashboard.
   const handleQuickDemoScan = (b: Beneficiary) => {
-    stopCameraStream();
-    setVisitPin('');
-    setPendingMatch(b);
-    setScanStatus('IDLE');
+    setScanStatus('DECRYPTING');
+    setTimeout(() => {
+      setScanStatus('SUCCESS');
+      setTimeout(() => {
+        onVisitVerified?.(b, 'SCAN_QR', false);
+        onSelectBeneficiary(b);
+        if (onScanSuccessToast) onScanSuccessToast(`✓ Scanned Pass: ${b.name} (${b.rchId})`);
+        onClose();
+      }, 500);
+    }, 400);
   };
 
   if (!isOpen) return null;
