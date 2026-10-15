@@ -118,20 +118,24 @@ if (typeof window !== 'undefined') {
  */
 function getBestVoiceForLanguage(lang: Language): { voice: SpeechSynthesisVoice | null; langCode: string } {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    return { voice: null, langCode: lang === 'mr' ? 'mr-IN' : lang === 'hi' ? 'hi-IN' : 'en-US' };
+    return { voice: null, langCode: lang === 'mr' ? 'hi-IN' : lang === 'hi' ? 'hi-IN' : 'en-US' };
   }
 
   // Fetch current voice list
   const voices = cachedVoices.length > 0 ? cachedVoices : (window.speechSynthesis.getVoices() || []);
 
   if (lang === 'mr') {
+    // 1. Check for dedicated Marathi voice (e.g. Windows OneCore Marathi)
     const mrVoice = voices.find(v => 
       v.lang.toLowerCase().startsWith('mr') || 
       v.name.toLowerCase().includes('marathi') ||
       v.name.toLowerCase().includes('मराठी')
     );
-    if (mrVoice) return { voice: mrVoice, langCode: 'mr-IN' };
+    if (mrVoice) return { voice: mrVoice, langCode: mrVoice.lang || 'mr-IN' };
 
+    // 2. Marathi and Hindi share Devanagari script and phonetics.
+    // Chrome, Edge, and Android provide high-quality Hindi neural voices (Google हिन्दी / Microsoft Swara)
+    // which read Marathi Devanagari text fluently and accurately.
     const hiVoice = voices.find(v => 
       v.lang.toLowerCase().startsWith('hi') || 
       v.name.toLowerCase().includes('hindi') ||
@@ -139,7 +143,11 @@ function getBestVoiceForLanguage(lang: Language): { voice: SpeechSynthesisVoice 
     );
     if (hiVoice) return { voice: hiVoice, langCode: 'hi-IN' };
 
-    return { voice: null, langCode: 'mr-IN' };
+    // 3. Any Indian voice fallback
+    const inVoice = voices.find(v => v.lang.toLowerCase().endsWith('-in'));
+    if (inVoice) return { voice: inVoice, langCode: inVoice.lang };
+
+    return { voice: null, langCode: 'hi-IN' };
   }
 
   if (lang === 'hi') {
@@ -165,7 +173,7 @@ function getBestVoiceForLanguage(lang: Language): { voice: SpeechSynthesisVoice 
   );
   if (enUsVoice) return { voice: enUsVoice, langCode: 'en-US' };
 
-  return { voice: null, langCode: 'en-US' };
+  return { voice: voices[0] || null, langCode: 'en-US' };
 }
 
 // Android WebView has no working speechSynthesis, so the app speaks through the phone's own
@@ -254,17 +262,14 @@ export const speakTutorialAudio = (
   speakTutorialAudioWeb(cleanSpokenText, language, onStart, onEnd);
 };
 
-// Browser path: speechSynthesis, then an online audio fallback
+// Browser path: speechSynthesis synchronously triggered to retain user gesture authorization
 function speakTutorialAudioWeb(
   cleanSpokenText: string,
   language: Language,
   onStart?: () => void,
   onEnd?: () => void
 ) {
-  let speechStarted = false;
-
   const handleStart = () => {
-    speechStarted = true;
     if (watchdogTimer) {
       clearTimeout(watchdogTimer);
       watchdogTimer = null;
@@ -284,69 +289,51 @@ function speakTutorialAudioWeb(
     if (onEnd) onEnd();
   };
 
-  // 40ms buffer flush to ensure Android/iOS TTS subsystem completely unbinds prior language audio
-  speakDelayTimer = setTimeout(() => {
-    if ('speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.resume();
+  if ('speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.resume();
 
-        const { voice, langCode } = getBestVoiceForLanguage(language);
-        const utterance = new SpeechSynthesisUtterance(cleanSpokenText);
-        activeUtterance = utterance;
-        // Keep global window reference so Chrome/Android GC does not garbage collect mid-speech
-        (window as any)._maatriUtterance = utterance;
+      const { voice, langCode } = getBestVoiceForLanguage(language);
+      const utterance = new SpeechSynthesisUtterance(cleanSpokenText);
+      activeUtterance = utterance;
+      // Keep global window reference so Chrome/Android GC does not garbage collect mid-speech
+      (window as any)._maatriUtterance = utterance;
 
-        utterance.lang = langCode;
-        if (voice && (
-          (language === 'en' && voice.lang.toLowerCase().startsWith('en')) ||
-          (language === 'mr' && (voice.lang.toLowerCase().startsWith('mr') || voice.lang.toLowerCase().startsWith('hi'))) ||
-          (language === 'hi' && voice.lang.toLowerCase().startsWith('hi'))
-        )) {
-          utterance.voice = voice;
-        }
-
-        utterance.rate = language === 'mr' ? 0.90 : 0.95;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
-
-        utterance.onstart = handleStart;
-        utterance.onend = handleEnd;
-
-        utterance.onerror = (e) => {
-          console.warn(`SpeechSynthesis error for [${language}], fallback:`, e);
-          playOnlineAudioFallback(cleanSpokenText, language, handleStart, handleEnd);
-        };
-
-        // Safety watchdog of 2500ms
-        watchdogTimer = setTimeout(() => {
-          if (!speechStarted) {
-            console.warn(`SpeechSynthesis safety watchdog timed out for [${language}].`);
-            try {
-              window.speechSynthesis.cancel();
-            } catch (e) {}
-            playOnlineAudioFallback(cleanSpokenText, language, handleStart, handleEnd);
-          }
-        }, 2500);
-
-        // Keepalive for Chrome Android 15-second speech freeze bug
-        keepAliveTimer = setInterval(() => {
-          if (window.speechSynthesis.speaking) {
-            window.speechSynthesis.pause();
-            window.speechSynthesis.resume();
-          }
-        }, 10000);
-
-        window.speechSynthesis.speak(utterance);
-        return;
-      } catch (err) {
-        console.warn('Web Speech API speak() threw error:', err);
+      utterance.lang = langCode;
+      if (voice) {
+        utterance.voice = voice;
       }
-    }
 
-    // Fallback if speechSynthesis is unavailable
-    playOnlineAudioFallback(cleanSpokenText, language, handleStart, handleEnd);
-  }, 40);
+      utterance.rate = language === 'mr' ? 0.90 : 0.95;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+
+      utterance.onstart = handleStart;
+      utterance.onend = handleEnd;
+
+      utterance.onerror = (e) => {
+        console.warn(`SpeechSynthesis error for [${language}]:`, e);
+        handleEnd();
+      };
+
+      // Keepalive for Chrome Android 15-second speech freeze bug
+      keepAliveTimer = setInterval(() => {
+        if (window.speechSynthesis.speaking) {
+          window.speechSynthesis.pause();
+          window.speechSynthesis.resume();
+        }
+      }, 10000);
+
+      window.speechSynthesis.speak(utterance);
+      return;
+    } catch (err) {
+      console.warn('Web Speech API speak() threw error:', err);
+      handleEnd();
+    }
+  } else {
+    handleEnd();
+  }
 }
 
 /**

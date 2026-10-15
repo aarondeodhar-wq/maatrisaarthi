@@ -73,6 +73,7 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
 
   // Handle role switch inside tour
   const handleRoleSelect = (role: UserRole) => {
+    markAudioReady();
     setSelectedTourRole(role);
     setCurrentStepIndex(0);
     if (onRoleChange) {
@@ -1064,13 +1065,42 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
           </p>
         </div>
 
+        {/* Big Tap to Speak / Voice Indicator Button */}
+        <button
+          type="button"
+          onClick={() => {
+            markAudioReady();
+            handleReplay();
+          }}
+          className={`w-full py-2.5 px-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-md ${
+            isPlayingAudio
+              ? 'bg-rose-600 text-white animate-pulse ring-2 ring-white/50'
+              : 'bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 ring-2 ring-teal-300/40'
+          }`}
+        >
+          {isPlayingAudio ? (
+            <>
+              <Square className="w-3.5 h-3.5 fill-white" />
+              <span>{language === 'mr' ? '🔊 आवाज चालू आहे (टॅप करून पुन्हा ऐका)' : language === 'hi' ? '🔊 आवाज चालू है (टैप कर पुनः सुनें)' : '🔊 Speaking... (Tap to replay)'}</span>
+            </>
+          ) : (
+            <>
+              <Volume2 className="w-4 h-4" />
+              <span>{language === 'mr' ? '🔊 आवाज ऐका (Tap to Listen)' : language === 'hi' ? '🔊 आवाज सुनें (Tap to Listen)' : '🔊 Listen to Voice Guide (Tap to Play)'}</span>
+            </>
+          )}
+        </button>
+
         {/* Progress Step Dots */}
         <div className="flex items-center justify-center gap-1.5 pt-1">
           {steps.map((_, idx) => (
             <button
               key={idx}
               type="button"
-              onClick={() => setCurrentStepIndex(idx)}
+              onClick={() => {
+                markAudioReady();
+                setCurrentStepIndex(idx);
+              }}
               className={`h-1.5 rounded-full transition-all cursor-pointer ${
                 idx === currentStepIndex 
                   ? 'w-7 bg-rose-500 dark:bg-teal-400 shadow-sm' 
