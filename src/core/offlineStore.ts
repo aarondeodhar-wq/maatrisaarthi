@@ -1,5 +1,5 @@
 import { Beneficiary, VitalRecord, DoctorPrescription, VisitLog } from '../types';
-import { auth, db, UserProfile } from './firebaseAuth';
+import { auth, db, UserProfile, isDemoProfile } from './firebaseAuth';
 import { createDefaultDPDPConsent } from './dpdpCompliance';
 import { doc, setDoc, collection, onSnapshot, query, where, serverTimestamp, getDoc } from 'firebase/firestore';
 
@@ -279,6 +279,7 @@ export function subscribeToLiveMothers(
 ): () => void {
   const isMother = profile.role === 'MOTHER';
   const isAsha = profile.role === 'ASHA_WORKER';
+  if (isDemoProfile(profile)) return () => {};
   if (!isMother && !profile.approved) return () => {};
   try {
     const mothersCol = collection(db, 'mothers');

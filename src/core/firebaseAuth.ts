@@ -49,6 +49,33 @@ export interface UserProfile {
   createdAt: string;
 }
 
+// Demo accounts are local-only: no Firebase sign-in, no cloud reads or writes. They open the
+// app on the built-in sample data so it can be shown without real credentials.
+const DEMO_UID_PREFIX = 'demo_';
+
+export function isDemoProfile(profile: UserProfile | null | undefined): boolean {
+  return !!profile && profile.uid.startsWith(DEMO_UID_PREFIX);
+}
+
+export function makeDemoProfile(role: UserRole): UserProfile {
+  const names: Record<UserRole, string> = {
+    MOTHER: 'Demo Mother',
+    ASHA_WORKER: 'Demo ASHA Worker',
+    PHC_DOCTOR: 'Dr. Demo',
+    WARD_OFFICER: 'Demo Ward Officer'
+  };
+  return {
+    uid: DEMO_UID_PREFIX + role.toLowerCase(),
+    name: names[role],
+    phone: '9000000000',
+    role,
+    approved: true,
+    village: 'Koregaon Bhima',
+    ...(role === 'MOTHER' ? { beneficiaryId: 'ben_001' } : {}),
+    createdAt: new Date().toISOString()
+  };
+}
+
 // Remove data written by earlier builds: a plaintext user/password registry,
 // a forgeable session object, and locally generated OTP codes.
 try {

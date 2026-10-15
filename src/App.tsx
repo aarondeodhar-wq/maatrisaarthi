@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Beneficiary, Language, UserRole, VitalRecord, DoctorPrescription } from './types';
-import { auth, UserProfile, subscribeToAuthProfile, signOutUser } from './core/firebaseAuth';
+import { auth, UserProfile, subscribeToAuthProfile, signOutUser, isDemoProfile } from './core/firebaseAuth';
 import { MOCK_BENEFICIARIES } from './data/mockMaternalData';
 import { getLocalBeneficiaries, saveLocalBeneficiaries, getPendingSyncMutations, queueOfflineMutation, processSyncQueue, subscribeToLiveMothers, PendingSyncMutation } from './core/offlineStore';
 import { SplashScreen } from './components/SplashScreen';
@@ -215,6 +215,7 @@ export function App() {
   // Every change is queued with the full updated record. When online it is written
   // immediately and leaves the queue only after Firestore confirms the write.
   const queueChange = (type: PendingSyncMutation['type'], record: Beneficiary, extra: Record<string, unknown> = {}) => {
+    if (isDemoProfile(authProfile)) return; // demo data never goes to the cloud
     queueOfflineMutation(type, record.id, { record, ...extra }, isOnline);
     setPendingSyncCount(getPendingSyncMutations().length);
     // Refresh the badge once the immediate write has had a chance to finish

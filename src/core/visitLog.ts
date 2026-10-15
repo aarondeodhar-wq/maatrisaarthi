@@ -4,7 +4,7 @@
 // The server stamps syncedAt, and firestore.rules ties ashaUid to request.auth.uid.
 
 import { Beneficiary, GeoPoint, VisitAction, VisitLog } from '../types';
-import { UserProfile } from './firebaseAuth';
+import { UserProfile, isDemoProfile } from './firebaseAuth';
 import { queueOfflineMutation } from './offlineStore';
 
 const GEO_TIMEOUT_MS = 8000;
@@ -52,7 +52,7 @@ export async function logVisit(
   verified: boolean,
   isOnline: boolean = navigator.onLine
 ): Promise<void> {
-  if (!profile || profile.role !== 'ASHA_WORKER' || !profile.approved) return;
+  if (!profile || isDemoProfile(profile) || profile.role !== 'ASHA_WORKER' || !profile.approved) return;
   const geo = await getCurrentGeo();
   const visit: VisitLog = {
     id: 'visit_' + Math.random().toString(36).substring(2, 11),

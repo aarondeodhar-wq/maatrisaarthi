@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { Beneficiary, VisitLog } from '../types';
-import { db } from '../core/firebaseAuth';
+import { auth, db } from '../core/firebaseAuth';
 import {
   AshaAccount,
   AshaRow,
@@ -27,6 +27,10 @@ export const AshaSupervisionPanel: React.FC<AshaSupervisionPanelProps> = ({ bene
   const [openUid, setOpenUid] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!auth.currentUser) {
+      setError('Live supervision data needs a real signed-in account (not the demo login).');
+      return;
+    }
     const since = new Date();
     since.setDate(since.getDate() - REPORT_DAYS);
     since.setHours(0, 0, 0, 0);

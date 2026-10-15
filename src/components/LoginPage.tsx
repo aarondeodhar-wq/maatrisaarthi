@@ -39,7 +39,7 @@ import {
   Download
 } from 'lucide-react';
 import { Beneficiary, VitalRecord } from '../types';
-import { registerUserAccount, loginWithGoogleAccount, signInWithPassword, ensureUserProfile, linkBeneficiaryToProfile, describeAuthError, UserProfile } from '../core/firebaseAuth';
+import { registerUserAccount, loginWithGoogleAccount, signInWithPassword, ensureUserProfile, linkBeneficiaryToProfile, describeAuthError, makeDemoProfile, UserProfile } from '../core/firebaseAuth';
 import { dispatchRealSmsOtp, verifyRealSmsOtp } from '../core/realOtpService';
 import { saveBeneficiaryToCloud } from '../core/offlineStore';
 import { calculateEDD, calculateGestationalWeeks, generateANCSchedule, toLocalDateString } from '../core/protocolEngine';
@@ -851,6 +851,33 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     <span>{isVerifying ? 'Authenticating...' : t.signInBtn[language]}</span>
                   </button>
                 )}
+
+                {/* Demo login: opens the app on built-in sample data, no account or cloud access */}
+                <div id="demo-login" className="pt-3 mt-1 border-t border-slate-200 dark:border-white/10 space-y-2">
+                  <span className="text-[11px] font-black text-slate-700 dark:text-slate-300 block">
+                    {language === 'mr' ? 'डेमो पहा (खाते नको):' : language === 'hi' ? 'डेमो देखें (खाता नहीं चाहिए):' : 'Try the demo (no account needed):'}
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      ['ASHA_WORKER', 'ASHA Worker'],
+                      ['PHC_DOCTOR', 'Doctor'],
+                      ['WARD_OFFICER', 'Ward Officer'],
+                      ['MOTHER', 'Mother']
+                    ] as Array<[UserRole, string]>).map(([role, label]) => (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => onLoginSuccess(makeDemoProfile(role))}
+                        className="btn-pill-secondary py-2 text-xs font-black cursor-pointer"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    {language === 'en' ? 'Sample data only. Nothing is saved to the cloud.' : 'फक्त नमुना माहिती. क्लाउडवर काहीही जतन होत नाही.'}
+                  </p>
+                </div>
               </div>
             ) : (
               /* SIGN UP TAB: COMPREHENSIVE CLINICAL INTAKE */
