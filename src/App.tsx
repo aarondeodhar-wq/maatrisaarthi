@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Beneficiary, Language, UserRole, VitalRecord, DoctorPrescription } from './types';
-import { auth, UserProfile, subscribeToAuthProfile, signOutUser, isDemoProfile, approveUserAccount } from './core/firebaseAuth';
+import { auth, UserProfile, subscribeToAuthProfile, signOutUser, isDemoProfile } from './core/firebaseAuth';
 import { MOCK_BENEFICIARIES } from './data/mockMaternalData';
 import { getLocalBeneficiaries, saveLocalBeneficiaries, getPendingSyncMutations, queueOfflineMutation, processSyncQueue, subscribeToLiveMothers, PendingSyncMutation } from './core/offlineStore';
 import { SplashScreen } from './components/SplashScreen';
@@ -438,16 +438,6 @@ export function App() {
 
   // Staff accounts must be approved by a Ward Officer before they can see patient data
   if (isPendingApproval) {
-    const handleApproveCurrentAccount = async () => {
-      if (!authProfile) return;
-      try {
-        await approveUserAccount(authProfile.uid);
-        setAuthProfile({ ...authProfile, approved: true });
-      } catch (e) {
-        setAuthProfile({ ...authProfile, approved: true });
-      }
-    };
-
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-[var(--bg)]">
         <div className="max-w-md w-full silky-card rounded-2xl p-6 text-center space-y-4 shadow-xl border border-[var(--border)]">
@@ -461,15 +451,6 @@ export function App() {
           </p>
 
           <div className="pt-2 flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={handleApproveCurrentAccount}
-              className="w-full py-3 bg-teal-600 hover:bg-teal-500 text-white font-black rounded-xl text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-2"
-            >
-              <span>✓</span>
-              <span>Approve My Account (Admin / Demo Access)</span>
-            </button>
-
             <button
               type="button"
               onClick={handleLogout}

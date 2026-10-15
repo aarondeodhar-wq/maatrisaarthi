@@ -245,18 +245,6 @@ export async function linkBeneficiaryToProfile(uid: string, beneficiaryId: strin
   if (cached) cacheProfile({ ...cached, beneficiaryId });
 }
 
-export async function approveUserAccount(uid: string): Promise<void> {
-  try {
-    await updateDoc(doc(db, 'user_accounts', uid), { approved: true });
-  } catch (e) {
-    console.warn('Could not update Firestore approval flag directly, falling back to local approval:', e);
-  }
-  const cached = getCachedProfile(uid);
-  if (cached) {
-    cacheProfile({ ...cached, approved: true });
-  }
-}
-
 export async function signOutUser(): Promise<void> {
   cacheProfile(null);
   await nativeSignOut();
