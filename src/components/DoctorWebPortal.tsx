@@ -4,6 +4,8 @@ import { exportBeneficiaryToWordDoc } from '../core/wordExportService';
 import { toLocalDateString } from '../core/protocolEngine';
 import { sendFreeWhatsAppAlert, sendFreeSmsAlert, describeAlertOutcome } from '../core/freeAlertsService';
 import { LiveCameraScannerModal } from './LiveCameraScannerModal';
+import { ExplainableAiPanel } from './ExplainableAiPanel';
+import { predictMaternalRisk, buildClinicalVitals } from '../core/mlRiskEngine';
 import {
   evaluatePregnancyFactors,
   PRE_EXISTING_CONDITIONS,
@@ -100,6 +102,9 @@ export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
     pregnancy: selectedBeneficiary.pregnancy
   });
   const pregProfile = selectedBeneficiary.pregnancy;
+  // Full AI analysis of her latest visit + history + pregnancy profile + trend vs the visit before
+  const fullAnalysis = predictMaternalRisk(buildClinicalVitals(selectedBeneficiary));
+  const latestVisit = selectedBeneficiary.vitalsHistory[0];
 
   const handleScanQRSimulate = (b: Beneficiary) => {
     setScanSimulating(true);
@@ -383,6 +388,16 @@ export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
               </div>
             )}
           </div>
+
+          {/* Explainable AI: every factor behind her current risk tier */}
+          <ExplainableAiPanel
+            result={fullAnalysis}
+            language={language}
+            title={language === 'mr' ? 'AI जोखीम विश्लेषण (स्पष्टीकरणासह)' : language === 'hi' ? 'AI जोखिम विश्लेषण (कारण सहित)' : 'AI risk analysis (explainable)'}
+            sourceNote={latestVisit
+              ? `Based on the visit of ${latestVisit.date} (week ${latestVisit.gestationalWeek}), her history and pregnancy profile.`
+              : 'No visit recorded yet: based on her history and pregnancy profile only.'}
+          />
 
           {/* OBSTETRIC & FETAL RISK DOSSIER (Multiple pregnancy, presentation, growth, pre-existing diseases, preterm risk) */}
           <div className="silky-glass rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-200 dark:border-white/15 space-y-4">

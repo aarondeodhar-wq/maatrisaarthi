@@ -70,7 +70,7 @@ export function exportBeneficiaryToWordDoc(beneficiary: Beneficiary): void {
       <td><strong>Gestational Age:</strong></td>
       <td>${beneficiary.currentGestationalWeeks} Weeks</td>
       <td><strong>Blood Group:</strong></td>
-      <td><strong>${beneficiary.bloodGroup || 'B+'}</strong></td>
+      <td><strong>${beneficiary.bloodGroup || 'Not known'}</strong></td>
     </tr>
     <tr>
       <td><strong>Obstetric Index:</strong></td>
@@ -80,7 +80,7 @@ export function exportBeneficiaryToWordDoc(beneficiary: Beneficiary): void {
     </tr>
     <tr>
       <td><strong>Assigned ASHA Worker:</strong></td>
-      <td colspan="3">${beneficiary.assignedAsha?.name || 'Savita Patil'} (${beneficiary.assignedAsha?.phone || '+91 97654 32101'})</td>
+      <td colspan="3">${beneficiary.assignedAsha?.name || 'Not assigned'}${beneficiary.assignedAsha?.phone ? ` (${beneficiary.assignedAsha.phone})` : ''}</td>
     </tr>
   </table>
 

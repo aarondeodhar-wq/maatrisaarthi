@@ -15,6 +15,7 @@ import { ReminderSandbox } from './components/ReminderSandbox';
 import { WardDashboard } from './components/WardDashboard';
 import { AlertCenterModal } from './components/AlertCenterModal';
 import { LiveSpotlightPointerTour } from './components/LiveSpotlightPointerTour';
+import { MotherRegistrationForm } from './components/MotherRegistrationForm';
 import { DevicePermissionsModal } from './components/DevicePermissionsModal';
 import { AuthLoadingScreen } from './components/AuthLoadingScreen';
 import { PatientRecordConsentPortal } from './components/PatientRecordConsentPortal';
@@ -31,18 +32,19 @@ import { sendFreeWhatsAppAlert, describeAlertOutcome, openEmergency108Dialer } f
 import { logVisit } from './core/visitLog';
 import { PhoneCall } from 'lucide-react';
 
+const SAMPLE_IDS = new Set(MOCK_BENEFICIARIES.map(b => b.id));
+// Older builds cached the sample mothers for every account; drop them from real accounts' lists
+const withoutSampleMothers = (list: Beneficiary[]) => list.filter(b => !SAMPLE_IDS.has(b.id));
+
 export function App() {
   // Android app (or ?layout=app): native-style layout. Website: desktop dashboard layout.
   const [appLayout] = useState<boolean>(() => isAppLayout());
   const [showSplash, setShowSplash] = useState<boolean>(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(false);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (isAppLayout() ? 'dark' : 'light'));
-  const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>(() => {
-    const local = getLocalBeneficiaries();
-    if (local && local.length > 0) return local;
-    saveLocalBeneficiaries(MOCK_BENEFICIARIES);
-    return MOCK_BENEFICIARIES;
-  });
+  // Sample mothers are only for demo accounts. Real accounts start from their own cached /
+  // cloud records, so sample data never mixes with (or gets uploaded as) real patients.
+  const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>(() => withoutSampleMothers(getLocalBeneficiaries() || []));
 
   // Authenticated identity (Firebase Auth + Firestore profile). Never read from localStorage.
   const [authProfile, setAuthProfile] = useState<UserProfile | null>(null);
@@ -60,7 +62,7 @@ export function App() {
     if (!authProfile) return;
     const unsubscribe = subscribeToLiveMothers(authProfile, (cloudMothers) => {
       setBeneficiaries(cloudMothers);
-    }, MOCK_BENEFICIARIES);
+    });
     return () => unsubscribe();
   }, [authProfile]);
 
@@ -100,7 +102,8 @@ export function App() {
   }, [theme]);
 
   useEffect(() => {
-    saveLocalBeneficiaries(beneficiaries);
+    // Demo data stays in memory only
+    if (!isDemoProfile(authProfile)) saveLocalBeneficiaries(beneficiaries);
     setPendingSyncCount(getPendingSyncMutations().length);
   }, [beneficiaries]);
 
@@ -189,6 +192,7 @@ export function App() {
   // Handler: apply an authenticated profile (from the login page or the Firebase Auth listener)
   const applyProfile = (profile: UserProfile) => {
     setAuthProfile(profile);
+    setBeneficiaries(isDemoProfile(profile) ? MOCK_BENEFICIARIES : withoutSampleMothers(getLocalBeneficiaries() || []));
     setIsAuthLoading(false);
 
     if (profile.role === 'MOTHER') {
@@ -405,10 +409,6 @@ export function App() {
     openEmergency108Dialer();
   };
 
-  // Handler: Record ASHA Voice Note
-  const handleRecordAudioNote = (beneficiary: Beneficiary, transcript: string) => {
-    console.log(`Audio note logged for ${beneficiary.name}: ${transcript}`);
-  };
 
   // 0. Starting Boot Animation (Initial Splash Screen)
   if (showSplash) {
@@ -556,6 +556,7 @@ export function App() {
           isSyncing={isSyncing}
           onTriggerSync={handleTriggerSync}
           onOpenAlertCenter={() => setIsAlertCenterOpen(true)}
+          onOpenVoiceTutorial={() => setIsTourOpen(true)}
         />
       ) : (
       <WebTopBar
@@ -630,8 +631,27 @@ export function App() {
           />
         )}
 
+        {/* No mothers yet (real accounts start empty): ASHA workers can register the first one */}
+        {activeRole !== 'MOTHER' && !selectedBeneficiary && !(activeRole === 'WARD_OFFICER' && currentTab !== 'registry' && currentTab !== 'reminders') && (
+          <div className="max-w-2xl mx-auto space-y-4">
+            <div className="silky-card rounded-2xl p-5 text-center space-y-1">
+              <h2 className="text-base font-black text-slate-950 dark:text-white">
+                {language === 'mr' ? 'अजून एकही माता नोंदलेली नाही' : language === 'hi' ? 'अभी कोई माता पंजीकृत नहीं' : 'No mothers registered yet'}
+              </h2>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                {activeRole === 'ASHA_WORKER'
+                  ? (language === 'mr' ? 'पहिल्या मातेची नोंदणी खाली करा.' : language === 'hi' ? 'नीचे पहली माता का पंजीकरण करें।' : 'Register your first mother below.')
+                  : (language === 'mr' ? 'आशा सेविका नोंदणी करताच माता येथे दिसतील.' : language === 'hi' ? 'आशा कार्यकर्ता के पंजीकरण के बाद माताएं यहां दिखेंगी।' : 'Mothers appear here once an ASHA worker registers them.')}
+              </p>
+            </div>
+            {activeRole === 'ASHA_WORKER' && (
+              <MotherRegistrationForm profile={authProfile} language={language} onRegistered={handleRegisterBeneficiary} />
+            )}
+          </div>
+        )}
+
         {/* ASHA FIELD WORKER ROLE */}
-        {activeRole === 'ASHA_WORKER' && (
+        {activeRole === 'ASHA_WORKER' && selectedBeneficiary && (
           currentTab === 'registry' ? (
             <RegistryDueList
               beneficiaries={beneficiaries}
@@ -664,14 +684,13 @@ export function App() {
               onUpdatePregnancy={handleUpdatePregnancy}
               onRegisterBeneficiary={handleRegisterBeneficiary}
               onSendEmergencySOS={handleEmergencySOS}
-              onRecordAudioNote={handleRecordAudioNote}
               isOnline={isOnline}
             />
           )
         )}
 
         {/* PHC DOCTOR ROLE */}
-        {activeRole === 'PHC_DOCTOR' && (
+        {activeRole === 'PHC_DOCTOR' && selectedBeneficiary && (
           currentTab === 'registry' ? (
             <RegistryDueList
               beneficiaries={beneficiaries}
@@ -706,8 +725,8 @@ export function App() {
           )
         )}
 
-        {/* WARD OFFICER / ADMIN ROLE */}
-        {activeRole === 'WARD_OFFICER' && (
+        {/* WARD OFFICER / ADMIN ROLE (the dashboard works with an empty cohort; lists need a mother) */}
+        {activeRole === 'WARD_OFFICER' && (selectedBeneficiary || (currentTab !== 'registry' && currentTab !== 'reminders')) && (
           currentTab === 'registry' ? (
             <RegistryDueList
               beneficiaries={beneficiaries}
@@ -768,7 +787,7 @@ export function App() {
 
       {/* Global Modals */}
 
-      {isAlertCenterOpen && (
+      {isAlertCenterOpen && selectedBeneficiary && (
         <AlertCenterModal
           isOpen={isAlertCenterOpen}
           onClose={() => setIsAlertCenterOpen(false)}

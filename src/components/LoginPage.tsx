@@ -91,27 +91,35 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   // Comprehensive Maternal Clinical Registration State
   const [signupName, setSignupName] = useState('');
   const [signupPhone, setSignupPhone] = useState('');
-  const [signupAge, setSignupAge] = useState<number>(24);
+  const [signupAgeText, setSignupAgeText] = useState('');
+  const signupAge = Number(signupAgeText) || 0;
   const [signupHusband, setSignupHusband] = useState('');
   const [signupRole, setSignupRole] = useState<UserRole>('MOTHER');
-  const [signupVillage, setSignupVillage] = useState('Koregaon Bhima');
+  const [signupVillage, setSignupVillage] = useState('');
   const [signupPin, setSignupPin] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   
   // Pregnancy & Menstrual Cycle Details
-  const [signupLmp, setSignupLmp] = useState('2026-03-01');
+  const [signupLmp, setSignupLmp] = useState('');
   const [signupGravidity, setSignupGravidity] = useState<number>(1);
   const [signupParity, setSignupParity] = useState<number>(0);
   const [signupHasPrevCesarean, setSignupHasPrevCesarean] = useState<boolean>(false);
   
   // Vital & Blood Reports (Clinical Baseline)
-  const [signupBloodGroup, setSignupBloodGroup] = useState('B+');
-  const [signupHb, setSignupHb] = useState<number>(10.5);
-  const [signupSystolic, setSignupSystolic] = useState<number>(120);
-  const [signupDiastolic, setSignupDiastolic] = useState<number>(80);
-  const [signupBloodSugar, setSignupBloodSugar] = useState<number>(95);
-  const [signupWeight, setSignupWeight] = useState<number>(54);
-  const [signupHeight, setSignupHeight] = useState<number>(155);
+  const [signupBloodGroup, setSignupBloodGroup] = useState('');
+  // Report values from her MCP card / lab slip. Blank = not known; nothing is assumed.
+  const [signupHbText, setSignupHbText] = useState('');
+  const [signupSystolicText, setSignupSystolicText] = useState('');
+  const [signupDiastolicText, setSignupDiastolicText] = useState('');
+  const [signupBloodSugarText, setSignupBloodSugarText] = useState('');
+  const [signupWeightText, setSignupWeightText] = useState('');
+  const [signupHeightText, setSignupHeightText] = useState('');
+  const signupHb = Number(signupHbText) || 0;
+  const signupSystolic = Number(signupSystolicText) || 0;
+  const signupDiastolic = Number(signupDiastolicText) || 0;
+  const signupBloodSugar = Number(signupBloodSugarText) || 0;
+  const signupWeight = Number(signupWeightText) || 0;
+  const signupHeight = Number(signupHeightText) || 0;
   const [signupHasBleeding, setSignupHasBleeding] = useState<boolean>(false);
   const [signupHasSevereHeadache, setSignupHasSevereHeadache] = useState<boolean>(false);
   const [signupHasEdema, setSignupHasEdema] = useState<boolean>(false);
@@ -329,6 +337,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       setErrorMessage(language === 'mr' ? 'पासवर्ड किमान ६ अक्षरांचा असावा.' : language === 'hi' ? 'पासवर्ड कम से कम 6 अक्षरों का होना चाहिए।' : 'Password must be at least 6 characters.');
       return;
     }
+    if (signupRole === 'MOTHER' && (!(signupAge >= 12 && signupAge <= 55) || !signupLmp)) {
+      setErrorMessage(language === 'mr' ? 'वय (१२-५५) आणि शेवटच्या पाळीची तारीख (LMP) भरा.' : language === 'hi' ? 'उम्र (12-55) और LMP तारीख भरें।' : 'Enter your age (12-55) and last period date (LMP).');
+      return;
+    }
     if (signupRole === 'MOTHER' && signupPin && !/^\d{4}$/.test(signupPin)) {
       setErrorMessage(language === 'mr' ? 'पिन ४ अंकी असावा.' : language === 'hi' ? 'पिन 4 अंकों का होना चाहिए।' : 'PIN must be exactly 4 digits.');
       return;
@@ -350,7 +362,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
         const weeks = calculateGestationalWeeks(signupLmp);
         const edd = calculateEDD(signupLmp);
-        const rchId = 'MH-2026-' + Math.floor(1000 + Math.random() * 9000);
+        // The RCH id is issued by the health system; it is added when her ASHA worker records it
+        const rchId = 'RCH pending';
         const pin = signupPin || Math.floor(1000 + Math.random() * 9000).toString();
         const beneficiaryId = 'ben_' + Date.now();
 
@@ -358,12 +371,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           id: 'vit_init_' + Date.now(),
           date: toLocalDateString(),
           gestationalWeek: weeks,
-          systolicBP: Number(signupSystolic),
-          diastolicBP: Number(signupDiastolic),
-          hemoglobin: Number(signupHb),
-          bloodSugar: Number(signupBloodSugar),
-          weightKg: Number(signupWeight),
-          urineProtein: 'NIL',
+          systolicBP: signupSystolic,
+          diastolicBP: signupDiastolic,
+          ...(signupHb > 0 ? { hemoglobin: signupHb } : {}),
+          ...(signupBloodSugar > 0 ? { bloodSugar: signupBloodSugar } : {}),
+          ...(signupWeight > 0 ? { weightKg: signupWeight } : {}),
           symptoms: {
             hasVaginalBleeding: signupHasBleeding,
             hasSevereHeadache: signupHasSevereHeadache,
@@ -376,20 +388,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           mlRiskScore: 0.15,
           riskTier: 'GREEN',
           riskReasons: [],
-          recordedBy: 'Self Registered (Baseline Intake)',
-          facility: signupVillage + ' PHC',
+          recordedBy: 'Self-reported by mother (from her MCP card)',
+          facility: signupVillage ? signupVillage + ' PHC' : 'Self-reported',
           syncStatus: 'LOCAL'
         };
 
         // Predict ML Risk Tier
         const riskResult = predictMaternalRisk({
-          age: Number(signupAge),
-          systolicBP: Number(signupSystolic),
-          diastolicBP: Number(signupDiastolic),
-          hemoglobin: Number(signupHb),
-          bloodSugar: Number(signupBloodSugar),
-          weightKg: Number(signupWeight),
+          age: signupAge,
+          systolicBP: signupSystolic,
+          diastolicBP: signupDiastolic,
+          hemoglobin: signupHb,
+          bloodSugar: signupBloodSugar,
+          weightKg: signupWeight || undefined,
           parity: Number(signupParity),
+          gravidity: Number(signupGravidity),
+          bloodGroup: signupBloodGroup,
           gestationalWeeks: weeks,
           hasPrevCesarean: signupHasPrevCesarean,
           hasBleeding: signupHasBleeding,
@@ -397,28 +411,31 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           hasFacialEdema: signupHasEdema,
           hasConvulsions: signupHasConvulsions
         });
-        const riskFactors = riskResult.explainability.map(e => e.feature);
+        const riskFactors = riskResult.explainability.filter(e => e.contribution !== 'NORMAL').map(e => e.reason[language]);
         initialVital.mlRiskScore = riskResult.riskProbability;
         initialVital.riskTier = riskResult.riskTier;
         initialVital.riskReasons = riskFactors;
 
         // Generate 8-ANC Schedule
-        const ancSchedule = generateANCSchedule(signupLmp, signupVillage + ' PHC');
+        const ancSchedule = generateANCSchedule(signupLmp, signupVillage ? signupVillage + ' PHC' : 'Assigned PHC');
+        // Only keep the baseline visit if she actually entered her blood pressure
+        const hasBaseline = signupSystolic > 0 && signupDiastolic > 0;
 
 
         const newBeneficiary: Beneficiary = {
           id: beneficiaryId,
           rchId: rchId,
           name: signupName.trim(),
-          age: Number(signupAge),
+          age: signupAge,
           phone: signupPhone.trim(),
-          husbandName: signupHusband.trim() || 'Rajesh',
-          village: signupVillage,
-          ward: 'Shirur Taluka Ward 4',
-          district: 'Pune',
+          husbandName: signupHusband.trim(),
+          village: signupVillage.trim(),
+          ward: '',
+          district: '',
+          // Filled in when an ASHA worker is assigned to her
           assignedAsha: {
-            name: 'Savita Patil',
-            phone: '+91 97654 32101'
+            name: '',
+            phone: ''
           },
           lmp: signupLmp,
           edd: edd,
@@ -432,7 +449,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           mlRiskScore: riskResult.riskProbability,
           riskFactors: riskFactors,
           ancSchedule: ancSchedule,
-          vitalsHistory: [initialVital],
+          vitalsHistory: hasBaseline ? [initialVital] : [],
           prescriptions: [],
           audioNotes: [],
           dpdpConsent: createDefaultDPDPConsent(language),
@@ -1007,8 +1024,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                             type="number"
                             min={15}
                             max={50}
-                            value={signupAge}
-                            onChange={e => setSignupAge(Number(e.target.value))}
+                            value={signupAgeText}
+                            onChange={e => setSignupAgeText(e.target.value)}
                             className="w-full p-2 rounded-xl border border-slate-300 dark:border-white/20 bg-white dark:bg-black/40 text-xs font-bold text-slate-900 dark:text-white"
                           />
                         </div>
@@ -1147,7 +1164,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                             {language === 'mr' ? 'गर्भ वय (Weeks)' : language === 'hi' ? 'गर्भ आयु (Weeks)' : 'Gestational Age'}
                           </span>
                           <span className="text-xs font-black text-teal-700 dark:text-teal-300">
-                            ⚡ {calculateGestationalWeeks(signupLmp)} {language === 'mr' ? 'आठवडे' : language === 'hi' ? 'सप्ताह' : 'Weeks'}
+                            ⚡ {signupLmp ? calculateGestationalWeeks(signupLmp) : '-'} {language === 'mr' ? 'आठवडे' : language === 'hi' ? 'सप्ताह' : 'Weeks'}
                           </span>
                         </div>
                         <div>
@@ -1155,7 +1172,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                             {language === 'mr' ? 'संभाव्य प्रसूती (EDD)' : language === 'hi' ? 'अनुमानित प्रसव (EDD)' : 'Estimated Due Date'}
                           </span>
                           <span className="text-xs font-black text-blue-600 dark:text-blue-400">
-                            📅 {calculateEDD(signupLmp)}
+                            📅 {signupLmp ? calculateEDD(signupLmp) : '-'}
                           </span>
                         </div>
                         <div>
@@ -1163,7 +1180,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                             {language === 'mr' ? 'तिमाही (Trimester)' : language === 'hi' ? 'तिमाही (Trimester)' : 'Trimester'}
                           </span>
                           <span className="text-xs font-black text-purple-600 dark:text-purple-400">
-                            👶 {calculateGestationalWeeks(signupLmp) <= 12 ? '1st' : calculateGestationalWeeks(signupLmp) <= 27 ? '2nd' : '3rd'}
+                            👶 {!signupLmp ? '-' : calculateGestationalWeeks(signupLmp) <= 12 ? '1st' : calculateGestationalWeeks(signupLmp) <= 27 ? '2nd' : '3rd'}
                           </span>
                         </div>
                       </div>
@@ -1193,6 +1210,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                             onChange={e => setSignupBloodGroup(e.target.value)}
                             className="w-full p-2 rounded-xl border border-slate-300 dark:border-white/20 bg-white dark:bg-black/40 text-xs font-bold text-slate-900 dark:text-white"
                           >
+                            <option value="">{language === 'mr' ? 'माहित नाही' : language === 'hi' ? 'पता नहीं' : 'Not known'}</option>
                             <option value="A+">A+</option>
                             <option value="B+">B+</option>
                             <option value="O+">O+</option>
@@ -1210,8 +1228,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                             <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-0.5">
                               {language === 'mr' ? 'हिमोग्लोबिन (Hb)' : language === 'hi' ? 'हीमोग्लोबिन (Hb)' : 'Hemoglobin (Hb g/dL)'}
                             </label>
-                            <span className={`text-[9px] font-bold ${signupHb < 7 ? 'text-rose-600' : signupHb < 11 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                              {signupHb < 7 ? 'Severe' : signupHb < 11 ? 'Moderate' : 'Normal'}
+                            <span className={`text-[9px] font-bold ${!signupHb ? 'text-slate-400' : signupHb < 7 ? 'text-rose-600' : signupHb < 11 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                              {!signupHb ? '' : signupHb < 7 ? 'Severe' : signupHb < 11 ? 'Moderate' : 'Normal'}
                             </span>
                           </div>
                           <input
@@ -1219,10 +1237,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                             step="0.1"
                             min="4"
                             max="18"
-                            value={signupHb}
-                            onChange={e => setSignupHb(Number(e.target.value))}
+                            value={signupHbText}
+                            placeholder="-"
+                            onChange={e => setSignupHbText(e.target.value)}
                             className={`w-full p-2 rounded-xl border text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-black/40 ${
-                              signupHb < 7 ? 'border-rose-500 bg-rose-50 dark:bg-rose-950/30' : 'border-slate-300 dark:border-white/20'
+                              signupHb > 0 && signupHb < 7 ? 'border-rose-500 bg-rose-50 dark:bg-rose-950/30' : 'border-slate-300 dark:border-white/20'
                             }`}
                           />
                         </div>
@@ -1235,16 +1254,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                           <div className="flex items-center gap-1.5">
                             <input
                               type="number"
-                              value={signupSystolic}
-                              onChange={e => setSignupSystolic(Number(e.target.value))}
+                              value={signupSystolicText}
+                              onChange={e => setSignupSystolicText(e.target.value)}
                               placeholder="120"
                               className="w-full p-2 rounded-xl border border-slate-300 dark:border-white/20 bg-white dark:bg-black/40 text-xs font-bold text-slate-900 dark:text-white text-center"
                             />
                             <span className="text-slate-400 font-bold">/</span>
                             <input
                               type="number"
-                              value={signupDiastolic}
-                              onChange={e => setSignupDiastolic(Number(e.target.value))}
+                              value={signupDiastolicText}
+                              onChange={e => setSignupDiastolicText(e.target.value)}
                               placeholder="80"
                               className="w-full p-2 rounded-xl border border-slate-300 dark:border-white/20 bg-white dark:bg-black/40 text-xs font-bold text-slate-900 dark:text-white text-center"
                             />
@@ -1258,8 +1277,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                           </label>
                           <input
                             type="number"
-                            value={signupBloodSugar}
-                            onChange={e => setSignupBloodSugar(Number(e.target.value))}
+                            value={signupBloodSugarText}
+                            placeholder="-"
+                            onChange={e => setSignupBloodSugarText(e.target.value)}
                             className="w-full p-2 rounded-xl border border-slate-300 dark:border-white/20 bg-white dark:bg-black/40 text-xs font-bold text-slate-900 dark:text-white"
                           />
                         </div>
@@ -1271,8 +1291,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                           </label>
                           <input
                             type="number"
-                            value={signupWeight}
-                            onChange={e => setSignupWeight(Number(e.target.value))}
+                            value={signupWeightText}
+                            placeholder="-"
+                            onChange={e => setSignupWeightText(e.target.value)}
                             className="w-full p-2 rounded-xl border border-slate-300 dark:border-white/20 bg-white dark:bg-black/40 text-xs font-bold text-slate-900 dark:text-white"
                           />
                         </div>
@@ -1284,8 +1305,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                           </label>
                           <input
                             type="number"
-                            value={signupHeight}
-                            onChange={e => setSignupHeight(Number(e.target.value))}
+                            value={signupHeightText}
+                            placeholder="-"
+                            onChange={e => setSignupHeightText(e.target.value)}
                             className="w-full p-2 rounded-xl border border-slate-300 dark:border-white/20 bg-white dark:bg-black/40 text-xs font-bold text-slate-900 dark:text-white"
                           />
                         </div>
@@ -1296,7 +1318,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                             {language === 'mr' ? 'BMI निर्देशांक' : language === 'hi' ? 'BMI इंडेक्स' : 'BMI Index'}
                           </label>
                           <div className="p-2 rounded-xl bg-slate-200/60 dark:bg-white/10 text-xs font-black text-slate-800 dark:text-slate-200 text-center">
-                            {(signupWeight / Math.pow(signupHeight / 100, 2)).toFixed(1)}
+                            {signupWeight > 0 && signupHeight > 0 ? (signupWeight / Math.pow(signupHeight / 100, 2)).toFixed(1) : '-'}
                           </div>
                         </div>
                       </div>
@@ -1376,15 +1398,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                         </div>
                       </div>
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                        (signupHb < 7 || signupSystolic >= 140 || signupHasBleeding || signupHasConvulsions)
+                        ((signupHb > 0 && signupHb < 7) || signupSystolic >= 140 || signupHasBleeding || signupHasConvulsions)
                           ? 'bg-rose-600 text-white animate-pulse'
-                          : (signupHb < 10 || signupSystolic >= 130 || signupHasEdema)
+                          : ((signupHb > 0 && signupHb < 10) || signupSystolic >= 130 || signupHasEdema)
                           ? 'bg-amber-500 text-slate-950'
                           : 'bg-emerald-600 text-white'
                       }`}>
-                        {(signupHb < 7 || signupSystolic >= 140 || signupHasBleeding || signupHasConvulsions)
+                        {((signupHb > 0 && signupHb < 7) || signupSystolic >= 140 || signupHasBleeding || signupHasConvulsions)
                           ? '🔴 Red Alert Tier'
-                          : (signupHb < 10 || signupSystolic >= 130 || signupHasEdema)
+                          : ((signupHb > 0 && signupHb < 10) || signupSystolic >= 130 || signupHasEdema)
                           ? '🟡 Yellow Tier'
                           : '🟢 Green Safe'}
                       </span>

@@ -433,3 +433,11 @@ export function categorizeDueList(schedule: ANCContact[], currentWeeks: number) 
 
   return { overdue, todayDue, upcoming7Days, pmsmaCohort };
 }
+
+/** Days until the next PMSMA specialist camp (held on the 9th of every month); 0 = today. */
+export function daysUntilNextPmsma(now: Date = new Date()): number {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const next = new Date(today.getFullYear(), today.getMonth(), 9);
+  if (next < today) next.setMonth(next.getMonth() + 1);
+  return Math.round((next.getTime() - today.getTime()) / 86400000);
+}

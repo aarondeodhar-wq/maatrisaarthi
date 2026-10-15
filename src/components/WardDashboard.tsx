@@ -4,7 +4,6 @@ import { computeKAnonymizedWardMetrics, computeSubCentreSummaries, formatPercent
 import { AshaSupervisionPanel } from './AshaSupervisionPanel';
 import { ModelEvidencePanel } from './ModelEvidencePanel';
 import { exportWardReportToWordDoc } from '../core/wordExportService';
-import { MOCK_WARD_NAMES } from '../data/mockMaternalData';
 import { 
   BarChart3, 
   ShieldCheck, 
@@ -34,6 +33,8 @@ interface WardDashboardProps {
 
 export const WardDashboard: React.FC<WardDashboardProps> = ({ beneficiaries, language }) => {
   const [selectedWard, setSelectedWard] = useState<string>('ALL_WARDS');
+  // Wards come from the registered mothers, not a fixed list
+  const wardNames = ['ALL_WARDS', ...Array.from(new Set(beneficiaries.map(b => b.ward).filter(Boolean))).sort()];
 
   const metrics = computeKAnonymizedWardMetrics(selectedWard, beneficiaries);
   const subCentres = computeSubCentreSummaries(
@@ -174,7 +175,7 @@ export const WardDashboard: React.FC<WardDashboardProps> = ({ beneficiaries, lan
                   onChange={e => setSelectedWard(e.target.value)}
                   className="text-xs font-black text-slate-950 dark:text-white bg-transparent cursor-pointer outline-none pr-4"
                 >
-                  {MOCK_WARD_NAMES.map((w, idx) => (
+                  {wardNames.map((w, idx) => (
                     <option key={idx} value={w} className="bg-white dark:bg-slate-900 text-slate-950 dark:text-white font-bold">
                       {w === 'ALL_WARDS' ? 'All PHC Wards Combined (सर्व प्रभाग)' : w}
                     </option>

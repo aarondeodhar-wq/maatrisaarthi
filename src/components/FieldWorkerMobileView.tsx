@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Beneficiary, Language, VitalRecord, RiskTier } from '../types';
 import { predictMaternalRisk } from '../core/mlRiskEngine';
-import { calculateEDD, calculateGestationalWeeks, generateANCSchedule, toLocalDateString } from '../core/protocolEngine';
-import { createDefaultDPDPConsent } from '../core/dpdpCompliance';
+import { speakTutorialAudio, stopTutorialAudio } from '../core/voiceTutorialService';
+import { toLocalDateString, daysUntilNextPmsma } from '../core/protocolEngine';
 import { 
   Heart, 
   QrCode, 
@@ -43,7 +43,6 @@ import {
   Scan,
   X
 } from 'lucide-react';
-import { getCurrentGeo } from '../core/visitLog';
 import { HealthPassQr } from './HealthPassQr';
 import { LiveCameraScannerModal } from './LiveCameraScannerModal';
 import { VisitConfirmModal } from './VisitConfirmModal';
@@ -53,6 +52,8 @@ import { WriteAccessBanner } from './WriteAccessBanner';
 import { MedicationPanel } from './MedicationPanel';
 import { PregnancyProfileCard } from './PregnancyProfileCard';
 import { VitalsSafetyPanel } from './VitalsSafetyPanel';
+import { ExplainableAiPanel } from './ExplainableAiPanel';
+import { MotherRegistrationForm } from './MotherRegistrationForm';
 import type { PregnancyProfile } from '../core/pregnancyRisk';
 
 interface FieldWorkerMobileViewProps {
@@ -67,7 +68,6 @@ interface FieldWorkerMobileViewProps {
   onUpdatePregnancy?: (beneficiaryId: string, profile: PregnancyProfile) => void;
   onRegisterBeneficiary: (newB: Beneficiary) => void;
   onSendEmergencySOS: (b: Beneficiary) => void;
-  onRecordAudioNote: (b: Beneficiary, noteText: string) => void;
   isOnline: boolean;
 }
 
@@ -83,25 +83,31 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
   onUpdatePregnancy,
   onRegisterBeneficiary,
   onSendEmergencySOS,
-  onRecordAudioNote,
   isOnline
 }) => {
   const [activeTab, setActiveTab] = useState<'CARD_TRIAGE' | 'ENTER_VITALS' | 'DUE_LIST' | 'TIMERS' | 'REGISTER'>('CARD_TRIAGE');
   const [searchQuery, setSearchQuery] = useState('');
   const [phoneFramePreview, setPhoneFramePreview] = useState(false);
 
-  // Vitals Entry Form State
-  const [systolicBP, setSystolicBP] = useState(selectedBeneficiary.vitalsHistory[0]?.systolicBP || 120);
-  const [diastolicBP, setDiastolicBP] = useState(selectedBeneficiary.vitalsHistory[0]?.diastolicBP || 80);
-  const [hemoglobin, setHemoglobin] = useState(selectedBeneficiary.vitalsHistory[0]?.hemoglobin || 11.0);
-  const [bloodSugar, setBloodSugar] = useState(selectedBeneficiary.vitalsHistory[0]?.bloodSugar || 95);
-  // SpO2 is typed in from a pulse oximeter; blank means not measured
+  // Vitals Entry Form State. Every reading starts blank: blank = not measured, so nothing
+  // is saved or scored for it. Last visit's values are shown as hints, never copied in.
+  const [systolicInput, setSystolicInput] = useState<string>('');
+  const [diastolicInput, setDiastolicInput] = useState<string>('');
+  const [hemoglobinInput, setHemoglobinInput] = useState<string>('');
+  const [bloodSugarInput, setBloodSugarInput] = useState<string>('');
+  const [weightInput, setWeightInput] = useState<string>('');
+  // SpO2 is typed in from a pulse oximeter
   const [spO2Input, setSpO2Input] = useState<string>('');
-  // Blank = not measured: nothing is saved or scored for it
   const [bodyTempInput, setBodyTempInput] = useState<string>('');
   const [heartRateInput, setHeartRateInput] = useState<string>('');
   const [urineInput, setUrineInput] = useState<'' | 'NIL' | 'TRACE' | '1+' | '2+' | '3+'>('');
-  const [weightKg, setWeightKg] = useState(selectedBeneficiary.vitalsHistory[0]?.weightKg || 52);
+  const reading = (s: string): number | undefined => (s.trim() && Number.isFinite(Number(s)) ? Number(s) : undefined);
+  const systolicBP = reading(systolicInput) ?? 0;
+  const diastolicBP = reading(diastolicInput) ?? 0;
+  const hemoglobin = reading(hemoglobinInput) ?? 0;
+  const bloodSugar = reading(bloodSugarInput) ?? 0;
+  const weightKg = reading(weightInput);
+  const lastVisit = selectedBeneficiary.vitalsHistory[0];
   const [hasBleeding, setHasBleeding] = useState(false);
   const [hasSevereHeadache, setHasSevereHeadache] = useState(false);
   const [hasBlurredVision, setHasBlurredVision] = useState(false);
@@ -113,10 +119,9 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
   const [hasLeakingFluid, setHasLeakingFluid] = useState(false);
   const [hasLowerAbdominalPain, setHasLowerAbdominalPain] = useState(false);
 
-  // Audio Note Recorder State
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [voiceNoteSent, setVoiceNoteSent] = useState(false);
+  // Read-aloud of the live AI result (native text-to-speech in the app, browser voice on the web)
+  const [isReadingAloud, setIsReadingAloud] = useState(false);
+  useEffect(() => () => stopTutorialAudio(), []);
 
   // ASHA QR Camera Scanner & Offline PIN State
   const [ashaScanModalOpen, setAshaScanModalOpen] = useState(false);
@@ -124,24 +129,10 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
   const [showVisitCode, setShowVisitCode] = useState(false);
   const [scanSuccessToast, setScanSuccessToast] = useState<string | null>(null);
 
-  // Live Timer & Pill Reminder state
-  const [pmsmaCountdownDays, setPmsmaCountdownDays] = useState(23);
-  const [pillTimerActive, setPillTimerActive] = useState(true);
-  const [customTimerMinutes, setCustomTimerMinutes] = useState(30);
+  // Live Timer state. PMSMA camps run on the 9th of every month.
+  const pmsmaCountdownDays = daysUntilNextPmsma();
   const [activeTimerSeconds, setActiveTimerSeconds] = useState(1800);
   const [timerRunning, setTimerRunning] = useState(false);
-
-  // New Mother Registration State
-  const [regName, setRegName] = useState('');
-  const [regAge, setRegAge] = useState(22);
-  const [regPhone, setRegPhone] = useState('');
-  const [regHusband, setRegHusband] = useState('');
-  const [regVillage, setRegVillage] = useState('Koregaon Bhima');
-  const [regLmp, setRegLmp] = useState('2026-04-15');
-  const [regGravidity, setRegGravidity] = useState(1);
-  const [regParity, setRegParity] = useState(0);
-  const [regPrevCesarean, setRegPrevCesarean] = useState(false);
-  const [regBloodGroup, setRegBloodGroup] = useState('B+');
 
   useEffect(() => {
     let interval: any = null;
@@ -155,18 +146,31 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
     return () => clearInterval(interval);
   }, [timerRunning, activeTimerSeconds]);
 
-  // Sync form when selected beneficiary changes
-  useEffect(() => {
-    const latest = selectedBeneficiary.vitalsHistory[0];
-    setSystolicBP(latest?.systolicBP || 120);
-    setDiastolicBP(latest?.diastolicBP || 80);
-    setHemoglobin(latest?.hemoglobin || 11.0);
-    setBloodSugar(latest?.bloodSugar || 95);
-    setWeightKg(latest?.weightKg || 52);
-    setSpO2Input(latest?.spO2 !== undefined ? String(latest.spO2) : '');
-  }, [selectedBeneficiary.id]);
+  // A different mother means a new visit: clear the form
+  const resetVitalsForm = () => {
+    setSystolicInput('');
+    setDiastolicInput('');
+    setHemoglobinInput('');
+    setBloodSugarInput('');
+    setWeightInput('');
+    setSpO2Input('');
+    setBodyTempInput('');
+    setHeartRateInput('');
+    setUrineInput('');
+    setHasBleeding(false);
+    setHasSevereHeadache(false);
+    setHasBlurredVision(false);
+    setHasFacialEdema(false);
+    setHasReducedFetalMovement(false);
+    setHasConvulsions(false);
+    setHasRegularContractions(false);
+    setHasLeakingFluid(false);
+    setHasLowerAbdominalPain(false);
+  };
+  useEffect(resetVitalsForm, [selectedBeneficiary.id]);
 
-  // Live evaluated triage on current inputs
+  // Live AI analysis of the form: readings, danger signs, history, pregnancy profile and the
+  // trend against her last saved visit
   const liveTriage = predictMaternalRisk({
     age: selectedBeneficiary.age,
     systolicBP,
@@ -175,6 +179,12 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
     bloodSugar,
     weightKg,
     parity: selectedBeneficiary.parity,
+    gravidity: selectedBeneficiary.gravidity,
+    hasPastStillbirth: selectedBeneficiary.hasPastStillbirth,
+    bloodGroup: selectedBeneficiary.bloodGroup,
+    previous: lastVisit
+      ? { systolicBP: lastVisit.systolicBP, diastolicBP: lastVisit.diastolicBP, hemoglobin: lastVisit.hemoglobin, date: lastVisit.date }
+      : undefined,
     hasPrevCesarean: selectedBeneficiary.hasPrevCesarean,
     hasBleeding,
     hasSevereHeadache,
@@ -195,17 +205,22 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
 
   const handleSaveVitals = (e: React.FormEvent) => {
     e.preventDefault();
+    // BP is taken at every ANC visit; the other readings may be left blank (not measured)
+    if (!(systolicBP > 0 && diastolicBP > 0)) {
+      alert(language === 'mr' ? 'रक्तदाब (वरचा व खालचा) भरा.' : language === 'hi' ? 'रक्तचाप (ऊपरी और निचला) भरें।' : 'Enter blood pressure (systolic and diastolic).');
+      return;
+    }
     const newVital: VitalRecord = {
       id: 'vit_' + Math.random().toString(36).substring(2, 9),
       date: toLocalDateString(),
       gestationalWeek: selectedBeneficiary.currentGestationalWeeks,
       systolicBP,
       diastolicBP,
-      hemoglobin,
-      bloodSugar,
-      weightKg,
+      ...(hemoglobin > 0 ? { hemoglobin } : {}),
+      ...(bloodSugar > 0 ? { bloodSugar } : {}),
+      ...(weightKg !== undefined ? { weightKg } : {}),
       ...(spO2Input.trim() ? { spO2: Math.round(Number(spO2Input)) } : {}),
-      urineProtein: urineInput || (liveTriage.riskTier === 'RED' ? '1+' : 'NIL'),
+      ...(urineInput ? { urineProtein: urineInput } : {}),
       ...(bodyTempInput.trim() ? { bodyTempF: Number(bodyTempInput) } : {}),
       ...(heartRateInput.trim() ? { heartRate: Math.round(Number(heartRateInput)) } : {}),
       symptoms: {
@@ -218,12 +233,12 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
         hasRegularContractions,
         hasLeakingFluid,
         hasLowerAbdominalPain,
-        hasHighFever: false
+        hasHighFever: reading(bodyTempInput) !== undefined && Number(bodyTempInput) >= 100.4
       },
       mlRiskScore: liveTriage.riskProbability,
       riskTier: liveTriage.riskTier,
       riskReasons: liveTriage.explainability.filter(e => e.contribution !== 'NORMAL').map(e => e.reason[language]),
-      recordedBy: selectedBeneficiary.assignedAsha.name,
+      recordedBy: profile?.name || selectedBeneficiary.assignedAsha.name,
       facility: selectedBeneficiary.village + ' Anganwadi / Sub-Centre',
       syncStatus: isOnline ? 'SYNCED' : 'LOCAL'
     };
@@ -232,112 +247,19 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
     setActiveTab('CARD_TRIAGE');
   };
 
-  const handleRegisterNewMother = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!regName || !regLmp) return;
-
-    // The registration GPS fix is the mother's home; later visits are measured from it
-    const homeLocation = await getCurrentGeo();
-
-    const weeks = calculateGestationalWeeks(regLmp);
-    const edd = calculateEDD(regLmp);
-    const schedule = generateANCSchedule(regLmp, 'PHC Shirur');
-
-    const newB: Beneficiary = {
-      id: 'ben_' + Math.random().toString(36).substring(2, 9),
-      rchId: `MH-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-      abhaId: `91-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
-      name: regName,
-      age: Number(regAge),
-      phone: regPhone || '+91 98000 00000',
-      husbandName: regHusband || 'Husband',
-      village: regVillage,
-      ward: 'Shirur Rural Ward 02',
-      district: 'Pune',
-      assignedAsha: {
-        name: 'Savita Patil (सविता पाटील)',
-        phone: '+91 97654 32101'
-      },
-      lmp: regLmp,
-      edd,
-      currentGestationalWeeks: weeks,
-      gravidity: Number(regGravidity),
-      parity: Number(regParity),
-      hasPrevCesarean: regPrevCesarean,
-      hasPastStillbirth: false,
-      bloodGroup: regBloodGroup,
-      currentRiskTier: 'GREEN',
-      mlRiskScore: 0.12,
-      riskFactors: [],
-      ancSchedule: schedule,
-      vitalsHistory: [
-        {
-          id: 'vit_init_' + Math.random().toString(36).substring(2, 7),
-          date: toLocalDateString(),
-          gestationalWeek: weeks,
-          systolicBP: 120,
-          diastolicBP: 80,
-          hemoglobin: 11.5,
-          bloodSugar: 90,
-          weightKg: 50,
-          urineProtein: 'NIL',
-          symptoms: {
-            hasVaginalBleeding: false,
-            hasSevereHeadache: false,
-            hasBlurredVision: false,
-            hasFacialEdema: false,
-            hasReducedFetalMovement: false,
-            hasConvulsions: false,
-            hasHighFever: false
-          },
-          mlRiskScore: 0.12,
-          riskTier: 'GREEN',
-          riskReasons: [],
-          recordedBy: 'Savita Patil (ASHA)',
-          facility: 'PHC Shirur',
-          syncStatus: isOnline ? 'SYNCED' : 'LOCAL'
-        }
-      ],
-      prescriptions: [],
-      audioNotes: [],
-      pregnancy: {
-        fetusCount: 1,
-        presentation: 'UNKNOWN',
-        growth: 'NORMAL',
-        conditions: [],
-        conceptionEvents: [],
-        priorComplications: []
-      },
-      dpdpConsent: createDefaultDPDPConsent(language, true, true, true),
-      qrAuthToken: `MS-AUTH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-      accessPin: `${Math.floor(1000 + Math.random() * 9000)}`,
-      ...(homeLocation ? { homeLocation } : {}),
-      registeredAt: toLocalDateString(),
-      lastSyncedAt: new Date().toISOString()
-    };
-
-    onRegisterBeneficiary(newB);
-    onSelectBeneficiary(newB);
-    setActiveTab('CARD_TRIAGE');
-  };
-
-  const handleVoiceRecordToggle = () => {
-    if (!isRecording) {
-      setIsRecording(true);
-      setRecordingSeconds(0);
-      const timer = setInterval(() => {
-        setRecordingSeconds(prev => {
-          if (prev >= 6) {
-            clearInterval(timer);
-            setIsRecording(false);
-            setVoiceNoteSent(true);
-            onRecordAudioNote(selectedBeneficiary, "डॉक्टर साहेब, मातेच्या रक्तदाब व हिमोग्लोबिन तपासणी संदर्भात तात्काळ मार्गदर्शन हवे आहे.");
-            return 6;
-          }
-          return prev + 1;
-        });
-      }, 1000);
+  const handleReadAloud = () => {
+    if (isReadingAloud) {
+      stopTutorialAudio();
+      setIsReadingAloud(false);
+      return;
     }
+    const reasons = liveTriage.explainability
+      .filter(x => x.contribution !== 'NORMAL' && !x.feature.startsWith('Trained ML Model'))
+      .slice(0, 4)
+      .map(x => x.reason[language]);
+    const text = [selectedBeneficiary.name, liveTriage.triageBadge[language], ...reasons, liveTriage.triageAction[language]].join('. ');
+    speakTutorialAudio(text, language, () => setIsReadingAloud(true), () => setIsReadingAloud(false));
+    setIsReadingAloud(true);
   };
 
   const filteredBeneficiaries = beneficiaries.filter(b => 
@@ -388,10 +310,10 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
             </div>
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-950 dark:text-white tracking-tight">
-                {selectedBeneficiary.assignedAsha.name} <span className="text-xs text-rose-600 dark:text-rose-300 font-bold">{language === 'mr' ? '(आशा कार्यकर्ती)' : language === 'hi' ? '(आशा कार्यकर्ता)' : '(ASHA Worker)'}</span>
+                {profile?.name || selectedBeneficiary.assignedAsha.name} <span className="text-xs text-rose-600 dark:text-rose-300 font-bold">{language === 'mr' ? '(आशा कार्यकर्ती)' : language === 'hi' ? '(आशा कार्यकर्ता)' : '(ASHA Worker)'}</span>
               </h2>
               <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                Primary Health Centre (PHC) Shirur • Assigned Village: {selectedBeneficiary.village}
+                {profile?.village ? `${profile.village} • ` : ''}{language === 'mr' ? 'सध्याची माता' : language === 'hi' ? 'चयनित माता' : 'Selected mother'}: {selectedBeneficiary.name}, {selectedBeneficiary.village || '-'}
               </p>
             </div>
           </div>
@@ -432,11 +354,6 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
                     key={b.id}
                     onClick={() => {
                       onSelectBeneficiary(b);
-                      setSystolicBP(b.vitalsHistory[0]?.systolicBP || 120);
-                      setDiastolicBP(b.vitalsHistory[0]?.diastolicBP || 80);
-                      setHemoglobin(b.vitalsHistory[0]?.hemoglobin || 11.0);
-                      setBloodSugar(b.vitalsHistory[0]?.bloodSugar || 95);
-                      setWeightKg(b.vitalsHistory[0]?.weightKg || 52);
                     }}
                     className={`p-3 rounded-2xl border transition cursor-pointer flex items-center justify-between ${
                       isSelected
@@ -539,13 +456,14 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
 
               <button
                 type="button"
-                onClick={handleVoiceRecordToggle}
+                onClick={handleReadAloud}
+                aria-pressed={isReadingAloud}
                 className={`flex items-center justify-center gap-2 font-black py-2.5 px-3 rounded-2xl shadow-lg text-xs cursor-pointer border border-white/25 backdrop-blur-md transition ${
-                  isRecording ? 'bg-amber-400 text-slate-950 animate-pulse' : 'bg-white/20 hover:bg-white/30 !text-white'
+                  isReadingAloud ? 'bg-amber-400 text-slate-950 animate-pulse' : 'bg-white/20 hover:bg-white/30 !text-white'
                 }`}
               >
-                {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                <span>{isRecording ? `Recording (${recordingSeconds}s)...` : language === 'mr' ? 'व्हॉईस मेमो (Audio)' : language === 'hi' ? 'वॉयस मेमो (Audio)' : 'Voice Memo (Audio)'}</span>
+                {isReadingAloud ? <MicOff className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                <span>{isReadingAloud ? (language === 'mr' ? 'थांबा' : language === 'hi' ? 'रोकें' : 'Stop') : language === 'mr' ? 'धोका मोठ्याने ऐका' : language === 'hi' ? 'जोखिम सुनें' : 'Read risk aloud'}</span>
               </button>
             </div>
           </div>
@@ -739,96 +657,69 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
                   )}
                 </div>
 
-                {/* Hemoglobin */}
-                <div className="reference-sub-card p-4 space-y-2">
-                  <div className="flex justify-between font-bold text-slate-800 dark:text-slate-200">
-                    <span className="flex items-center gap-1.5 text-xs font-black">
-                      <Droplets className="w-4 h-4 text-rose-500" />
-                      <span>Hemoglobin (Hb)</span>
-                    </span>
-                    <span className={`text-sm font-black px-2 py-0.5 rounded-lg ${
-                      hemoglobin < 7 
-                        ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400 font-black animate-pulse' 
-                        : 'bg-teal-500/15 text-teal-700 dark:text-teal-300'
-                    }`}>
-                      {hemoglobin} g/dL
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setHemoglobin(prev => Math.max(4.0, parseFloat((prev - 0.1).toFixed(1))))}
-                      className="w-7 h-7 rounded-lg bg-slate-200 dark:bg-white/10 font-black text-slate-900 dark:text-white flex items-center justify-center cursor-pointer hover:bg-slate-300"
-                    >
-                      -
-                    </button>
-                    <input
-                      type="range"
-                      min="4.0"
-                      max="16.0"
-                      step="0.1"
-                      value={hemoglobin}
-                      onChange={e => setHemoglobin(parseFloat(e.target.value))}
-                      className="flex-1 accent-teal-500 cursor-pointer h-2 bg-slate-200 dark:bg-slate-700 rounded-full"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setHemoglobin(prev => Math.min(16.0, parseFloat((prev + 0.1).toFixed(1))))}
-                      className="w-7 h-7 rounded-lg bg-slate-200 dark:bg-white/10 font-black text-slate-900 dark:text-white flex items-center justify-center cursor-pointer hover:bg-slate-300"
-                    >
-                      +
-                    </button>
-                  </div>
-                  <span className="text-[10px] text-slate-600 dark:text-slate-400 block font-bold">
-                    Severe Anemia if &lt; 7.0 g/dL • Moderate: 7.0 - 9.9 g/dL
-                  </span>
-                </div>
-
-                {/* Blood Pressure */}
+                {/* Blood Pressure (required at every visit) */}
                 <div className="reference-sub-card p-4 space-y-2">
                   <div className="flex justify-between font-bold text-slate-800 dark:text-slate-200">
                     <span className="flex items-center gap-1.5 text-xs font-black">
                       <Activity className="w-4 h-4 text-blue-500" />
-                      <span>Blood Pressure (BP)</span>
+                      <span>Blood Pressure (mmHg) *</span>
                     </span>
-                    <span className={`text-sm font-black px-2 py-0.5 rounded-lg ${
-                      systolicBP >= 140 || diastolicBP >= 90
-                        ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400 animate-pulse'
-                        : 'bg-blue-500/15 text-blue-700 dark:text-blue-300'
-                    }`}>
-                      {systolicBP}/{diastolicBP} mmHg
-                    </span>
+                    {lastVisit && (
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">
+                        last: {lastVisit.systolicBP}/{lastVisit.diastolicBP}
+                      </span>
+                    )}
                   </div>
-
                   <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block">Systolic</span>
-                      <input
-                        type="range"
-                        min="80"
-                        max="200"
-                        step="2"
-                        value={systolicBP}
-                        onChange={e => setSystolicBP(parseInt(e.target.value))}
-                        className="w-full accent-blue-500 cursor-pointer h-2 bg-slate-200 dark:bg-slate-700 rounded-full"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block">Diastolic</span>
-                      <input
-                        type="range"
-                        min="50"
-                        max="130"
-                        step="2"
-                        value={diastolicBP}
-                        onChange={e => setDiastolicBP(parseInt(e.target.value))}
-                        className="w-full accent-blue-500 cursor-pointer h-2 bg-slate-200 dark:bg-slate-700 rounded-full"
-                      />
-                    </div>
+                    <input
+                      type="number" inputMode="numeric" min={60} max={250} required
+                      value={systolicInput} onChange={e => setSystolicInput(e.target.value)}
+                      placeholder="Systolic e.g. 118" aria-label="Systolic BP"
+                      className="w-full border border-slate-300 dark:border-white/20 rounded-xl p-2.5 bg-white dark:bg-black/40 font-bold"
+                    />
+                    <input
+                      type="number" inputMode="numeric" min={30} max={160} required
+                      value={diastolicInput} onChange={e => setDiastolicInput(e.target.value)}
+                      placeholder="Diastolic e.g. 76" aria-label="Diastolic BP"
+                      className="w-full border border-slate-300 dark:border-white/20 rounded-xl p-2.5 bg-white dark:bg-black/40 font-bold"
+                    />
                   </div>
                   <span className="text-[10px] text-slate-600 dark:text-slate-400 block font-bold">
                     Pre-eclampsia risk if &ge; 140/90 mmHg
+                  </span>
+                </div>
+
+                {/* Hemoglobin, blood sugar, weight (blank = not measured) */}
+                <div className="reference-sub-card p-4 space-y-2">
+                  <label className="flex justify-between text-xs font-black text-slate-800 dark:text-slate-200">
+                    <span className="flex items-center gap-1.5"><Droplets className="w-4 h-4 text-rose-500" />Hemoglobin (g/dL)</span>
+                    {lastVisit?.hemoglobin !== undefined && <span className="text-[10px] text-slate-500 font-bold">last: {lastVisit.hemoglobin}</span>}
+                  </label>
+                  <input
+                    type="number" inputMode="decimal" step="0.1" min={3} max={20}
+                    value={hemoglobinInput} onChange={e => setHemoglobinInput(e.target.value)}
+                    placeholder="Not measured" className="w-full border border-slate-300 dark:border-white/20 rounded-xl p-2.5 bg-white dark:bg-black/40 font-bold"
+                  />
+                  <label className="flex justify-between text-xs font-black text-slate-800 dark:text-slate-200">
+                    <span>Blood sugar (mg/dL)</span>
+                    {lastVisit?.bloodSugar !== undefined && <span className="text-[10px] text-slate-500 font-bold">last: {lastVisit.bloodSugar}</span>}
+                  </label>
+                  <input
+                    type="number" inputMode="numeric" min={30} max={600}
+                    value={bloodSugarInput} onChange={e => setBloodSugarInput(e.target.value)}
+                    placeholder="Not measured" className="w-full border border-slate-300 dark:border-white/20 rounded-xl p-2.5 bg-white dark:bg-black/40 font-bold"
+                  />
+                  <label className="flex justify-between text-xs font-black text-slate-800 dark:text-slate-200">
+                    <span>Weight (kg)</span>
+                    {lastVisit?.weightKg !== undefined && <span className="text-[10px] text-slate-500 font-bold">last: {lastVisit.weightKg}</span>}
+                  </label>
+                  <input
+                    type="number" inputMode="decimal" step="0.1" min={25} max={200}
+                    value={weightInput} onChange={e => setWeightInput(e.target.value)}
+                    placeholder="Not measured" className="w-full border border-slate-300 dark:border-white/20 rounded-xl p-2.5 bg-white dark:bg-black/40 font-bold"
+                  />
+                  <span className="text-[10px] text-slate-600 dark:text-slate-400 block font-bold">
+                    Severe anaemia if Hb &lt; 7.0 g/dL • GDM check if sugar &ge; 140 mg/dL
                   </span>
                 </div>
               </div>
@@ -982,6 +873,13 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
                 </div>
               </div>
 
+              {/* Live explainable-AI analysis of everything entered above plus her history */}
+              <ExplainableAiPanel
+                result={liveTriage}
+                language={language}
+                title={language === 'mr' ? 'AI जोखीम विश्लेषण (स्पष्टीकरणासह)' : language === 'hi' ? 'AI जोखिम विश्लेषण (कारण सहित)' : 'AI risk analysis (explainable)'}
+              />
+
               {/* Primary Save Action Pill Button */}
               <button
                 type="submit"
@@ -1042,10 +940,10 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
                     <span className="text-xs font-mono font-bold text-rose-600 dark:text-rose-300">Monthly 9th</span>
                   </div>
                   <div className="text-2xl font-black text-slate-950 dark:text-white font-mono">
-                    {pmsmaCountdownDays} Days Remaining
+                    {pmsmaCountdownDays === 0 ? 'Today' : `${pmsmaCountdownDays} ${pmsmaCountdownDays === 1 ? 'Day' : 'Days'} Remaining`}
                   </div>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-tight font-medium">
-                    Specialist OB-GYN camp at {selectedBeneficiary.village} PHC on 9th of next month.
+                    {pmsmaCountdownDays === 0 ? 'PMSMA specialist camp is today (9th).' : 'Specialist OB-GYN camp at the PHC on the 9th.'}
                   </p>
                 </div>
 
@@ -1139,64 +1037,15 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
 
           {/* TAB: REGISTER */}
           {activeTab === 'REGISTER' && (
-            <form onSubmit={handleRegisterNewMother} className="silky-glass rounded-3xl p-6 shadow-2xl space-y-3.5 border border-slate-200 dark:border-white/15 text-xs">
-              <h3 className="text-sm font-black text-slate-950 dark:text-white border-b border-slate-200/80 dark:border-white/10 pb-2.5 flex items-center gap-1.5">
-                <PlusCircle className="w-4 h-4 text-rose-500" />
-                <span>{language === 'mr' ? 'नवीन गर्भवती मातेची नोंदणी (New Mother Registration)' : language === 'hi' ? 'नई गर्भवती माता का पंजीकरण' : 'New Maternal Beneficiary Registration'}</span>
-              </h3>
-              <div>
-                <label className="font-bold text-slate-800 dark:text-slate-300 block mb-1">Full Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Full Name"
-                  value={regName}
-                  onChange={e => setRegName(e.target.value)}
-                  className="w-full border border-slate-300 dark:border-white/20 rounded-xl p-2.5 bg-slate-50 dark:bg-black/40 text-slate-900 dark:text-white font-bold placeholder-slate-400 focus:bg-white focus:border-teal-500"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-800 dark:text-slate-300 block mb-1">Age *</label>
-                  <input
-                    type="number"
-                    placeholder="Age"
-                    value={regAge}
-                    onChange={e => setRegAge(parseInt(e.target.value) || 20)}
-                    className="w-full border border-slate-300 dark:border-white/20 rounded-xl p-2.5 bg-slate-50 dark:bg-black/40 text-slate-900 dark:text-white font-bold placeholder-slate-400 focus:bg-white focus:border-teal-500"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-800 dark:text-slate-300 block mb-1">Phone Number *</label>
-                  <input
-                    type="text"
-                    placeholder="Phone"
-                    value={regPhone}
-                    onChange={e => setRegPhone(e.target.value)}
-                    className="w-full border border-slate-300 dark:border-white/20 rounded-xl p-2.5 bg-slate-50 dark:bg-black/40 text-slate-900 dark:text-white font-bold placeholder-slate-400 focus:bg-white focus:border-teal-500"
-                  />
-                </div>
-              </div>
-              <div className="bg-rose-50 dark:bg-rose-950/40 p-3 rounded-2xl border border-rose-200 dark:border-rose-500/30">
-                <label className="font-black text-rose-900 dark:text-rose-300 block mb-1 flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-rose-600 dark:text-rose-300" />
-                  <span>Last Menstrual Period (LMP Date) *</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={regLmp}
-                  onChange={e => setRegLmp(e.target.value)}
-                  className="w-full border border-rose-300 dark:border-rose-400 rounded-xl p-2 bg-white dark:bg-black/40 text-slate-900 dark:text-white text-xs font-bold"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-black py-3.5 rounded-2xl shadow-xl transition cursor-pointer border border-white/20 text-xs sm:text-sm"
-              >
-                {language === 'mr' ? 'नोंदणी पूर्ण करा (Schedule 8 ANCs)' : language === 'hi' ? 'पंजीकरण पूर्ण करें' : 'Complete Registration & Schedule 8 ANCs'}
-              </button>
-            </form>
+            <MotherRegistrationForm
+              profile={profile}
+              language={language}
+              onRegistered={b => {
+                onRegisterBeneficiary(b);
+                onSelectBeneficiary(b);
+                setActiveTab('CARD_TRIAGE');
+              }}
+            />
           )}
         </div>
       </div>

@@ -270,7 +270,7 @@ export const PatientRecordConsentPortal: React.FC<PatientRecordConsentPortalProp
               </div>
               <div>
                 <span className="text-[11px] text-slate-400 font-bold block">रक्तगट (Blood Group):</span>
-                <span className="text-sm font-black text-rose-400 font-mono">{beneficiary.bloodGroup || 'B+'}</span>
+                <span className="text-sm font-black text-rose-400 font-mono">{beneficiary.bloodGroup || 'Not known'}</span>
                 <span className="text-[10px] text-slate-400 block mt-0.5">वय: {beneficiary.age} वर्षे</span>
               </div>
               <div>

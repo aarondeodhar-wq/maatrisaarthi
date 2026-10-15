@@ -30,6 +30,9 @@ import { PatientRecordConsentPortal } from './PatientRecordConsentPortal';
 import { Beneficiary } from '../types';
 import { UserProfile } from '../core/firebaseAuth';
 import { confirmVisitCode } from '../core/visitCodes';
+import { predictMaternalRisk, buildClinicalVitals } from '../core/mlRiskEngine';
+import { daysUntilNextPmsma } from '../core/protocolEngine';
+import { ExplainableAiPanel } from './ExplainableAiPanel';
 
 interface MotherPersonalViewProps {
   profile?: UserProfile | null;
@@ -66,38 +69,26 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
   const [showQrModal, setShowQrModal] = useState(false);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [showConsentPortal, setShowConsentPortal] = useState(false);
-  const t = {
-    myPass: {
-      mr: 'माझा डिजिटल मातृ सुरक्षा पास (Digital MCP Pass)',
-      hi: 'मेरा डिजिटल मातृ सुरक्षा पास (Digital MCP Pass)',
-      en: 'My Digital Safe Motherhood Pass (MCP)'
-    },
-    rchId: {
-      mr: 'RCH क्रमांक: MH-PUN-2026-8819',
-      hi: 'RCH नंबर: MH-PUN-2026-8819',
-      en: 'RCH ID: MH-PUN-2026-8819'
-    },
-    gestationalAge: {
-      mr: 'गर्भधारणेचा टप्पा: २६ आठवडे (दुसरा तिमाही)',
-      hi: 'गर्भावस्था चरण: 26 सप्ताह (दूसरी तिमाही)',
-      en: 'Gestational Stage: 26 Weeks (2nd Trimester)'
-    },
-    edd: {
-      mr: 'अपेक्षित प्रसूती तारीख (EDD): १८ नोव्हेंबर २०२६',
-      hi: 'अपेक्षित प्रसव तिथि (EDD): 18 नवंबर 2026',
-      en: 'Estimated Due Date (EDD): 18 Nov 2026'
-    },
-    assignedAsha: {
-      mr: 'तुमची आशा सेविका: सविता पाटील (+91 97654 32101)',
-      hi: 'आपकी आशा कार्यकर्ता: सविता पाटील (+91 97654 32101)',
-      en: 'Assigned ASHA Worker: Savita Patil (+91 97654 32101)'
-    },
-    nextAnc: {
-      mr: 'पुढील ANC तपासणी: ९ सप्टेंबर २०२६ (PMSMA विशेष शिबिर)',
-      hi: 'अगली ANC जांच: 9 सितंबर 2026 (PMSMA विशेष शिविर)',
-      en: 'Next ANC Visit: 9th Sept 2026 (PMSMA Specialist Camp)'
-    }
+  // Everything shown comes from her own record; nothing is filled in when it is missing
+  const analysis = beneficiary ? predictMaternalRisk(buildClinicalVitals(beneficiary)) : null;
+  const weeks = beneficiary?.currentGestationalWeeks;
+  const trimester = weeks === undefined ? null : weeks < 14 ? 1 : weeks < 28 ? 2 : 3;
+  const pmsmaDays = daysUntilNextPmsma();
+  const nextAnc = beneficiary?.ancSchedule.find(c => c.status !== 'COMPLETED');
+  const formatDate = (iso?: string) => {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(language === 'en' ? 'en-IN' : language === 'hi' ? 'hi-IN' : 'mr-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   };
+  const tier = beneficiary?.currentRiskTier;
+  const tierLabel = !beneficiary
+    ? (language === 'mr' ? 'नोंद नाही' : language === 'hi' ? 'रिकॉर्ड नहीं' : 'No record yet')
+    : tier === 'RED'
+    ? (language === 'mr' ? 'उच्च धोका - त्वरित तपासणी' : language === 'hi' ? 'उच्च जोखिम - तुरंत जांच' : 'High risk - see doctor now')
+    : tier === 'YELLOW'
+    ? (language === 'mr' ? 'मध्यम धोका - जवळून देखरेख' : language === 'hi' ? 'मध्यम जोखिम - निगरानी' : 'Moderate risk - close follow-up')
+    : (language === 'mr' ? 'सुरक्षित / सामान्य' : language === 'hi' ? 'सुरक्षित / सामान्य' : 'Low risk / normal');
+  const tierColor = tier === 'RED' ? 'text-rose-700' : tier === 'YELLOW' ? 'text-amber-700' : 'text-emerald-700';
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto animate-fadeIn font-sans">
@@ -117,11 +108,13 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
                   <span>सक्रिय (Active)</span>
                 </span>
               </div>
-              <p className="text-xs text-rose-100 font-medium mt-1">{t.rchId[language]}</p>
-              <p className="text-xs text-rose-100 flex items-center gap-1.5 mt-0.5">
-                <MapPin className="w-3.5 h-3.5 text-white" />
-                <span>Koregaon Bhima PHC • Pune Rural</span>
-              </p>
+              <p className="text-xs text-rose-100 font-medium mt-1">RCH: {beneficiary?.rchId || (language === 'en' ? 'not linked yet' : '-')}</p>
+              {(beneficiary?.village || beneficiary?.district) && (
+                <p className="text-xs text-rose-100 flex items-center gap-1.5 mt-0.5">
+                  <MapPin className="w-3.5 h-3.5 text-white" />
+                  <span>{[beneficiary?.village, beneficiary?.district].filter(Boolean).join(' • ')}</span>
+                </p>
+              )}
             </div>
           </div>
 
@@ -154,7 +147,7 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
             </span>
             <span className="text-sm font-black text-slate-950 flex items-center gap-1.5 mt-0.5">
               <Activity className="w-4 h-4 text-purple-500" />
-              <span>{language === 'mr' ? '२६ आठवडे (२रा तिमाही)' : language === 'hi' ? '26 सप्ताह (दूसरी तिमाही)' : '26 Weeks (2nd Trimester)'}</span>
+              <span>{weeks === undefined ? '-' : language === 'mr' ? `${weeks} आठवडे (${trimester} रा तिमाही)` : language === 'hi' ? `${weeks} सप्ताह (तिमाही ${trimester})` : `${weeks} Weeks (Trimester ${trimester})`}</span>
             </span>
           </div>
 
@@ -164,7 +157,7 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
             </span>
             <span className="text-sm font-black text-slate-950 flex items-center gap-1.5 mt-0.5">
               <Calendar className="w-4 h-4 text-rose-500" />
-              <span>{language === 'mr' ? '१८ नोव्हेंबर २०२६' : language === 'hi' ? '18 नवंबर 2026' : '18 Nov 2026'}</span>
+              <span>{formatDate(beneficiary?.edd)}</span>
             </span>
           </div>
 
@@ -172,9 +165,9 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
             <span className="text-[11px] font-bold text-slate-500 block">
               {language === 'mr' ? 'जोखीम श्रेणी:' : language === 'hi' ? 'जोखिम श्रेणी:' : 'Risk Triage:'}
             </span>
-            <span className="text-sm font-black text-emerald-700 flex items-center gap-1.5 mt-0.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>{language === 'mr' ? 'सुरक्षित / सामान्य' : language === 'hi' ? 'सुरक्षित / सामान्य' : 'Low Risk / Normal'}</span>
+            <span className={`text-sm font-black flex items-center gap-1.5 mt-0.5 ${tierColor}`}>
+              <ShieldCheck className="w-4 h-4" />
+              <span>{tierLabel}</span>
             </span>
           </div>
         </div>
@@ -229,7 +222,9 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
           </div>
 
           <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
-            {t.nextAnc[language]}
+            {nextAnc
+              ? `ANC ${nextAnc.contactNo}: ${nextAnc.title[language] || nextAnc.title.en} • ${formatDate(nextAnc.dueDate)}`
+              : (language === 'mr' ? 'पुढील तपासणी आशा सेविका ठरवतील.' : language === 'hi' ? 'अगली जांच आशा कार्यकर्ता तय करेंगी।' : 'Your ASHA worker will schedule the next checkup.')}
           </p>
 
           <div className="silky-card p-2.5 rounded-xl flex items-center justify-between text-xs font-bold border border-slate-200 dark:border-white/10">
@@ -237,7 +232,9 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
               {language === 'mr' ? 'तपासणी बाकी:' : language === 'hi' ? 'समय शेष:' : 'Time Left:'}
             </span>
             <span className="text-rose-600 dark:text-rose-400 font-mono font-black">
-              {language === 'mr' ? '२३ दिवस शिल्लक' : language === 'hi' ? '23 दिन शेष' : '23 Days Remaining'}
+              {pmsmaDays === 0
+                ? (language === 'mr' ? 'आज PMSMA' : language === 'hi' ? 'आज PMSMA' : 'PMSMA today')
+                : language === 'mr' ? `PMSMA: ${pmsmaDays} दिवस` : language === 'hi' ? `PMSMA: ${pmsmaDays} दिन` : `PMSMA in ${pmsmaDays} ${pmsmaDays === 1 ? 'day' : 'days'}`}
             </span>
           </div>
         </div>
@@ -474,64 +471,50 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-          {/* ANC 1 */}
-          <div className="silky-card p-3.5 rounded-2xl border-emerald-500/40 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-emerald-600 dark:text-emerald-300">ANC 1 (12 Wks)</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            </div>
-            <p className="text-[11px] text-slate-600 dark:text-slate-300">
-              {language === 'mr' ? 'पहिली नोंदणी, हिमोग्लोबिन व प्राथमिक रक्तगट तपासणी.' : language === 'hi' ? 'प्रथम पंजीकरण, हीमोग्लोबिन व रक्त समूह जांच।' : 'Initial registration, hemoglobin & blood grouping.'}
-            </p>
-            <span className="text-[10px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full inline-block font-bold">
-              {language === 'mr' ? 'पूर्ण झाले' : language === 'hi' ? 'पूर्ण' : 'Completed'}
-            </span>
+        {beneficiary && beneficiary.ancSchedule.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            {beneficiary.ancSchedule.map(c => {
+              const done = c.status === 'COMPLETED';
+              const overdue = c.status === 'OVERDUE';
+              const isNext = nextAnc?.contactNo === c.contactNo;
+              return (
+                <div key={c.contactNo} className={`silky-card p-3.5 rounded-2xl space-y-1.5 ${done ? 'border-emerald-500/40' : overdue || isNext ? 'border-rose-500/50' : 'opacity-80'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`font-bold ${done ? 'text-emerald-600 dark:text-emerald-300' : overdue || isNext ? 'text-rose-600 dark:text-rose-300' : 'text-slate-600 dark:text-slate-300'}`}>
+                      ANC {c.contactNo} ({c.targetWeek} Wks)
+                    </span>
+                    {done ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <Clock className={`w-4 h-4 ${overdue || isNext ? 'text-rose-500' : 'text-slate-400'}`} />}
+                  </div>
+                  <p className="text-[11px] text-slate-700 dark:text-slate-300">{c.title[language] || c.title.en}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">{formatDate(c.dueDate)}{c.assignedFacility ? ` • ${c.assignedFacility}` : ''}</p>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full inline-block font-bold ${done ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' : overdue ? 'bg-rose-600 text-white' : isNext ? 'bg-rose-100 text-rose-800' : 'bg-black/10 dark:bg-white/10 text-slate-600 dark:text-slate-400'}`}>
+                    {done
+                      ? (language === 'mr' ? 'पूर्ण झाले' : language === 'hi' ? 'पूर्ण' : 'Completed')
+                      : overdue
+                      ? (language === 'mr' ? 'उशीर' : language === 'hi' ? 'विलंबित' : 'Overdue')
+                      : isNext
+                      ? (language === 'mr' ? 'आगामी' : language === 'hi' ? 'आगामी' : 'Next')
+                      : (language === 'mr' ? 'नियोजित' : language === 'hi' ? 'नियोजित' : 'Scheduled')}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-
-          {/* ANC 2 */}
-          <div className="silky-card p-3.5 rounded-2xl border-emerald-500/40 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-emerald-600 dark:text-emerald-300">ANC 2 (20 Wks)</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            </div>
-            <p className="text-[11px] text-slate-600 dark:text-slate-300">
-              {language === 'mr' ? 'USG सोनोग्राफी व TT/Td पहिला डोस पूर्ण.' : language === 'hi' ? 'USG सोनोग्राफी और TT/Td प्रथम खुराक।' : 'Anomaly USG Scan & Td dose 1.'}
-            </p>
-            <span className="text-[10px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full inline-block font-bold">
-              {language === 'mr' ? 'पूर्ण झाले' : language === 'hi' ? 'पूर्ण' : 'Completed'}
-            </span>
-          </div>
-
-          {/* ANC 3 (Upcoming) */}
-          <div className="silky-card p-3.5 rounded-2xl border-rose-500/50 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-rose-600 dark:text-rose-300">ANC 3 (26 Wks)</span>
-              <Clock className="w-4 h-4 text-rose-500" />
-            </div>
-            <p className="text-[11px] text-slate-800 dark:text-slate-200 font-bold">
-              {language === 'mr' ? 'PMSMA ९ सप्टेंबर शिबिर: BP व वजन तपासणी.' : language === 'hi' ? 'PMSMA 9 सितंबर शिविर: BP व वजन जांच।' : 'PMSMA 9th Sept: Specialist BP & weight screening.'}
-            </p>
-            <span className="text-[10px] bg-rose-600 text-white px-2 py-0.5 rounded-full inline-block font-bold">
-              {language === 'mr' ? 'आगामी' : language === 'hi' ? 'आगामी' : 'Upcoming Due'}
-            </span>
-          </div>
-
-          {/* ANC 4 */}
-          <div className="silky-card p-3.5 rounded-2xl space-y-1.5 opacity-75">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-slate-600 dark:text-slate-300">ANC 4 (30 Wks)</span>
-              <Clock className="w-4 h-4 text-slate-400" />
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              {language === 'mr' ? 'तिसरा तिमाही रक्तदाब व गर्भवाढ देखरेख.' : language === 'hi' ? 'तीसरी तिमाही रक्तचाप व भ्रूण विकास निगरानी।' : '3rd Trimester BP & symphysio-fundal monitoring.'}
-            </p>
-            <span className="text-[10px] bg-black/10 dark:bg-white/10 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full inline-block font-bold">
-              {language === 'mr' ? 'नियोजित' : language === 'hi' ? 'नियोजित' : 'Scheduled'}
-            </span>
-          </div>
-        </div>
+        ) : (
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {language === 'mr' ? 'तुमचे तपासणी वेळापत्रक आशा सेविका नोंदणी केल्यावर दिसेल.' : language === 'hi' ? 'आपका जांच कार्यक्रम आशा पंजीकरण के बाद दिखेगा।' : 'Your checkup schedule appears once your ASHA worker registers you.'}
+          </p>
+        )}
       </div>
+
+      {/* Explainable AI: why her risk level is what it is (with Listen for read-aloud) */}
+      {analysis && (
+        <ExplainableAiPanel
+          result={analysis}
+          language={language}
+          title={language === 'mr' ? 'माझा धोका - का?' : language === 'hi' ? 'मेरा जोखिम - क्यों?' : 'My risk - why?'}
+        />
+      )}
 
       {/* REAL SCANNABLE QR MODAL OVERLAY */}
       {/* Mother's Unique Scannable QR Pass Modal */}
@@ -572,7 +555,7 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
             <div className="bg-black/50 p-2.5 rounded-2xl border border-white/10 text-xs space-y-1">
               <div className="flex justify-between font-bold text-slate-300">
                 <span>RCH ID:</span>
-                <span className="font-mono text-teal-400 font-black">{beneficiary?.rchId || 'MH-PUN-2026-8819'}</span>
+                <span className="font-mono text-teal-400 font-black">{beneficiary?.rchId || '-'}</span>
               </div>
               <div className="flex justify-between font-bold text-slate-300">
                 <span>ऑफलाइन सुरक्षा पिन (PIN):</span>

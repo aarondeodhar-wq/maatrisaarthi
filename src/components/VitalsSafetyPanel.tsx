@@ -17,7 +17,7 @@ interface Props {
   diastolicBP: number;
   hemoglobin: number;
   bloodSugar: number;
-  weightKg: number;
+  weightKg?: number;
   spO2: string;
   bodyTemp: string;
   heartRate: string;

@@ -47,6 +47,8 @@ export interface UserProfile {
   // Staff accounts start unapproved; a Ward Officer (or the Firebase console) sets this to true.
   approved: boolean;
   email?: string;
+  // Real contact email for the mother's sign-in code. Set once; firestore.rules block a change.
+  contactEmail?: string;
   village?: string;
   lmp?: string;
   doctorReg?: string;

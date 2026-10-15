@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Menu, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { Bell, Menu, PhoneCall, RefreshCw, Volume2, Wifi, WifiOff } from 'lucide-react';
 import { Language, UserRole } from '../types';
 import { getRoleNavItems } from '../core/navigation';
 
@@ -21,10 +21,12 @@ interface AppTopBarProps {
   isSyncing: boolean;
   onTriggerSync: () => void;
   onOpenAlertCenter: () => void;
+  onOpenVoiceTutorial: () => void;
 }
 
+// Same quick actions as the website's top bar: sync, voice guide, alerts, 108
 export const AppTopBar: React.FC<AppTopBarProps> = ({
-  language, activeRole, isOnline, pendingSyncCount, isSyncing, onTriggerSync, onOpenAlertCenter
+  language, activeRole, isOnline, pendingSyncCount, isSyncing, onTriggerSync, onOpenAlertCenter, onOpenVoiceTutorial
 }) => (
   <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-950/95 backdrop-blur border-b border-slate-200 dark:border-white/10 pt-[env(safe-area-inset-top)]">
     <div className="flex items-center justify-between gap-2 px-4 h-14">
@@ -52,12 +54,30 @@ export const AppTopBar: React.FC<AppTopBarProps> = ({
         </button>
         <button
           type="button"
+          id="tour-voice-guide-btn"
+          onClick={onOpenVoiceTutorial}
+          className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-500/15 text-teal-700 dark:text-teal-300 flex items-center justify-center"
+          title={language === 'mr' ? 'आवाज मार्गदर्शक' : language === 'hi' ? 'आवाज़ गाइड' : 'Voice guide'}
+          aria-label="Voice guide"
+        >
+          <Volume2 className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
           onClick={onOpenAlertCenter}
           className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 flex items-center justify-center"
           title="Alerts"
         >
           <Bell className="w-4 h-4" />
         </button>
+        <a
+          href="tel:108"
+          className="h-9 px-2.5 rounded-xl bg-[#b42318] text-white flex items-center gap-1 text-[11px] font-black"
+          aria-label="Call 108 ambulance"
+        >
+          <PhoneCall className="w-3.5 h-3.5" />
+          <span>108</span>
+        </a>
       </div>
     </div>
   </header>

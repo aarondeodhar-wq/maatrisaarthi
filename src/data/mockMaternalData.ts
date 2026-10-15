@@ -1,4 +1,5 @@
-// Realistic Benchmark Maternal Dataset representing Rural PHC Wards
+// Sample mothers for the demo account only (App.tsx loads them for demo profiles).
+// Fictional people: never shown to, cached for, or uploaded by a real account.
 
 import { Beneficiary } from '../types';
 import { generateANCSchedule, calculateGestationalWeeks, calculateEDD } from '../core/protocolEngine';
@@ -712,16 +713,4 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     registeredAt: '2026-02-05',
     lastSyncedAt: '2026-08-11T12:00:00Z'
   }
-];
-
-export const MOCK_WARD_NAMES = [
-  'ALL_WARDS',
-  'Shirur Rural Ward 01',
-  'Shirur Rural Ward 02',
-  'Shirur Rural Ward 03',
-  'Junnar Rural Ward 02',
-  'Junnar Rural Ward 04',
-  'Khed Rural Ward 01',
-  'Baramati Rural Ward 02',
-  'Ambegaon Rural Ward 01'
 ];

@@ -87,23 +87,6 @@ export async function saveBeneficiaryToCloud(b: Beneficiary): Promise<void> {
 }
 
 /**
- * Uploads the complete records of the given cohort to Cloud Firestore.
- * Returns how many records were written successfully.
- */
-export async function syncAllCohortToFirestore(beneficiaries: Beneficiary[]): Promise<number> {
-  let count = 0;
-  for (const b of beneficiaries) {
-    try {
-      await saveBeneficiaryToCloud({ ...b, lastSyncedAt: new Date().toISOString() });
-      count++;
-    } catch (err) {
-      console.warn(`Firestore write failed for ${b.id}:`, err);
-    }
-  }
-  return count;
-}
-
-/**
  * Gets all mutations waiting in the offline sync queue
  */
 export function getPendingSyncMutations(): PendingSyncMutation[] {
@@ -274,8 +257,7 @@ export function mergeCloudWithLocal(cloud: Beneficiary[], local: Beneficiary[]):
  */
 export function subscribeToLiveMothers(
   profile: UserProfile,
-  onUpdate: (mothers: Beneficiary[]) => void,
-  initialFallback: Beneficiary[]
+  onUpdate: (mothers: Beneficiary[]) => void
 ): () => void {
   const isMother = profile.role === 'MOTHER';
   const isAsha = profile.role === 'ASHA_WORKER';
@@ -288,16 +270,13 @@ export function subscribeToLiveMothers(
       : isAsha
       ? query(mothersCol, where('assignedAshaUid', '==', profile.uid))
       : mothersCol;
+    // An empty result is passed on too (no mothers yet), so the list never shows stale or
+    // sample records. The cloud is never seeded with sample data.
     const unsubscribe = onSnapshot(source, (snapshot) => {
-      if (!snapshot.empty) {
-        const cloudMothers = snapshot.docs.map(d => normalizeBeneficiary(d.data()));
-        const merged = mergeCloudWithLocal(cloudMothers, getLocalBeneficiaries());
-        saveLocalBeneficiaries(merged);
-        onUpdate(merged);
-      } else if (profile.role === 'WARD_OFFICER') {
-        // Initial setup: Seed cloud Firestore with baseline cohorts
-        syncAllCohortToFirestore(initialFallback);
-      }
+      const cloudMothers = snapshot.docs.map(d => normalizeBeneficiary(d.data()));
+      const merged = mergeCloudWithLocal(cloudMothers, getLocalBeneficiaries() || []);
+      saveLocalBeneficiaries(merged);
+      onUpdate(merged);
     }, (err) => {
       console.warn('Firestore real-time subscription note (using cached/offline state):', err);
     });
