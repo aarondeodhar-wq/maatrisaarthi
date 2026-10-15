@@ -19,24 +19,20 @@ import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore
 import { UserRole } from '../types';
 import { isNativeApp, nativeGoogleSignIn, nativeSignOut } from './nativeAuth';
 
-// Firebase project config comes only from environment variables (.env locally, Vercel project
-// settings in production). No values are hard-coded in source. The web API key is public by design,
-// so restrict it to your domains in Google Cloud (APIs & Services > Credentials).
-const requireEnv = (name: string, value: string | undefined): string => {
-  if (!value) {
-    throw new Error(`Missing ${name}. Add it to .env (local) or the Vercel project environment variables.`);
-  }
-  return value;
+// Firebase web client config: uses environment variables when provided (.env or Vercel settings),
+// and falls back to project configuration so production deployments never crash with a blank screen.
+const getEnv = (value: string | undefined, fallback: string): string => {
+  return (value && typeof value === 'string' && value.trim().length > 0) ? value : fallback;
 };
 
 const firebaseConfig = {
-  apiKey: requireEnv('VITE_FIREBASE_API_KEY', import.meta.env.VITE_FIREBASE_API_KEY),
-  authDomain: requireEnv('VITE_FIREBASE_AUTH_DOMAIN', import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
-  projectId: requireEnv('VITE_FIREBASE_PROJECT_ID', import.meta.env.VITE_FIREBASE_PROJECT_ID),
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: requireEnv('VITE_FIREBASE_APP_ID', import.meta.env.VITE_FIREBASE_APP_ID),
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: getEnv(import.meta.env.VITE_FIREBASE_API_KEY, 'AIzaSyCssYrkWLs_EMeXxGhkzCSAQofU113Fwk0'),
+  authDomain: getEnv(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN, 'maatrisaarthi.firebaseapp.com'),
+  projectId: getEnv(import.meta.env.VITE_FIREBASE_PROJECT_ID, 'maatrisaarthi'),
+  storageBucket: getEnv(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET, 'maatrisaarthi.firebasestorage.app'),
+  messagingSenderId: getEnv(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID, '536118937101'),
+  appId: getEnv(import.meta.env.VITE_FIREBASE_APP_ID, '1:536118937101:web:9458bd11ccf7401b55b744'),
+  measurementId: getEnv(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID, 'G-0Z4JE7HWHW')
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
