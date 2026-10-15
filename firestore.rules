@@ -39,6 +39,10 @@ service cloud.firestore {
       return hasProfile() && profile().role == 'MOTHER';
     }
 
+    function visitCodePath(beneficiaryId) {
+      return /databases/$(database)/documents/visit_codes/$(beneficiaryId);
+    }
+
     function changedKeys() {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
@@ -119,9 +123,14 @@ service cloud.firestore {
     match /visit_logs/{visitId} {
       allow read: if isClinicalLead()
         || (isApprovedRole('ASHA_WORKER') && resource.data.ashaUid == request.auth.uid);
+      // motherConfirmed may only be true when the mother really confirmed this ASHA's code
       allow create: if isApprovedRole('ASHA_WORKER')
         && request.resource.data.ashaUid == request.auth.uid
-        && request.resource.data.syncedAt == request.time;
+        && request.resource.data.syncedAt == request.time
+        && (request.resource.data.get('motherConfirmed', false) == false
+          || (exists(visitCodePath(request.resource.data.beneficiaryId))
+            && get(visitCodePath(request.resource.data.beneficiaryId)).data.ashaUid == request.auth.uid
+            && get(visitCodePath(request.resource.data.beneficiaryId)).data.confirmedAt != null));
       allow update: if false;
       allow delete: if isApprovedRole('WARD_OFFICER');
     }
@@ -130,6 +139,34 @@ service cloud.firestore {
       allow read: if isClinicalLead();
       allow create, update: if isApprovedRole('PHC_DOCTOR');
       allow delete: if isApprovedRole('WARD_OFFICER');
+    }
+
+    // ---------- One-time visit codes (second factor for an ASHA visit) ----------
+    // Document id = mothers/{id}. The assigned ASHA worker issues a code (a new code replaces
+    // the old one) and can read it back. The mother's account can only confirm: the update must
+    // carry the same code, arrive before it expires, and change nothing else. She cannot read it.
+    match /visit_codes/{beneficiaryId} {
+      function motherRecord() {
+        return get(/databases/$(database)/documents/mothers/$(beneficiaryId)).data;
+      }
+
+      allow read: if isClinicalLead()
+        || (isApprovedRole('ASHA_WORKER') && resource.data.ashaUid == request.auth.uid);
+
+      allow create, update: if isApprovedRole('ASHA_WORKER')
+        && request.resource.data.ashaUid == request.auth.uid
+        && motherRecord().assignedAshaUid == request.auth.uid
+        && request.resource.data.confirmedAt == null
+        && request.resource.data.expiresAt <= request.time.toMillis() + 960000;
+
+      allow update: if signedIn()
+        && motherRecord().ownerUid == request.auth.uid
+        && resource.data.confirmedAt == null
+        && request.time.toMillis() <= resource.data.expiresAt
+        && changedKeys().hasOnly(['confirmedCode', 'confirmedAt', 'confirmedByUid'])
+        && request.resource.data.confirmedCode == resource.data.code
+        && request.resource.data.confirmedAt == request.time
+        && request.resource.data.confirmedByUid == request.auth.uid;
     }
 
     // ---------- Reserved collections ----------

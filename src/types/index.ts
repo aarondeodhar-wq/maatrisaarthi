@@ -66,7 +66,7 @@ export interface GeoPoint {
 }
 
 // How a visit was recorded. QR and PIN actions open a mother's record; the others write to it.
-export type VisitAction = 'SCAN_QR' | 'PIN_UNLOCK' | 'RECORD_VITALS' | 'REGISTER_MOTHER';
+export type VisitAction = 'SCAN_QR' | 'PIN_UNLOCK' | 'RECORD_VITALS' | 'REGISTER_MOTHER' | 'VISIT_CONFIRMED';
 
 // One row of visit_logs/{id}: written once, never edited. ashaUid is checked against
 // request.auth.uid by firestore.rules, and syncedAt is the server's own clock.
@@ -77,6 +77,7 @@ export interface VisitLog {
   beneficiaryId: string;
   action: VisitAction;
   verified: boolean;        // true when the mother's consent PIN was entered at the visit
+  motherConfirmed?: boolean; // true when the mother confirmed this visit with the ASHA's one-time code (checked by firestore.rules)
   clientAt: string;         // device time of the visit (ISO)
   geo?: GeoPoint;           // absent when location was denied or unavailable
 }
@@ -261,4 +262,17 @@ export interface SentNotificationLog {
   messageContent: string;
   status: 'QUEUED' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'CONSENT_BLOCKED';
   dpdpConsentVerified: boolean;
+}
+
+// One-time visit code an ASHA worker issues for a mother. Stored at visit_codes/{beneficiaryId},
+// so issuing a new code replaces (and so invalidates) the previous one.
+export interface VisitCode {
+  id: string;               // = beneficiaryId
+  ashaUid: string;
+  ashaName: string;
+  code: string;             // 6 digits
+  createdAt: number;        // epoch ms
+  expiresAt: number;        // epoch ms
+  confirmedAt: number | null;
+  confirmedByUid?: string;
 }

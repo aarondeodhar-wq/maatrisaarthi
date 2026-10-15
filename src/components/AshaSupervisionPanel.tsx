@@ -108,7 +108,7 @@ export const AshaSupervisionPanel: React.FC<AshaSupervisionPanelProps> = ({ bene
                 <div className="min-w-[8rem] flex-1">
                   <span className="text-sm font-black text-slate-950 dark:text-white block">{r.name}</span>
                   <span className="text-[10px] text-slate-600 dark:text-slate-400 font-bold">
-                    {r.assignedMothers} mothers • {r.visitsToday} visits today
+                    {r.assignedMothers} mothers • {r.visitsToday} visits today • {r.confirmedVisits} mother-confirmed
                   </span>
                 </div>
 

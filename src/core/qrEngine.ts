@@ -29,6 +29,14 @@ export function isPassFresh(pass: MotherHealthPassPayload, now: number = Date.no
   return now <= pass.expiresAt + CLOCK_SKEW_MS && pass.expiresAt - now <= PASS_TTL_MS + CLOCK_SKEW_MS;
 }
 
+/** Public web address QR links point to. The app and the website share it, so each can scan the other's QR. */
+export function getPassBaseUrl(): string {
+  const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
+  return (origin && !origin.includes('localhost') && !origin.includes('127.0.0.1') && !origin.startsWith('capacitor://') && !origin.startsWith('ionic://') && !origin.startsWith('file://'))
+    ? origin
+    : 'https://maatrisaarthi.vercel.app';
+}
+
 /**
  * Generates a universal web URL QR code that can be scanned by any smartphone camera or app
  */
@@ -36,11 +44,7 @@ export async function generateHealthPassQrCode(
   payload: MotherHealthPassPayload
 ): Promise<string> {
   try {
-    const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
-    // Always use live production URL for QR passes so any external phone camera scans live to https://maatrisaarthi.vercel.app
-    const baseUrl = (origin && !origin.includes('localhost') && !origin.includes('127.0.0.1') && !origin.startsWith('capacitor://') && !origin.startsWith('ionic://') && !origin.startsWith('file://'))
-      ? origin
-      : 'https://maatrisaarthi.vercel.app';
+    const baseUrl = getPassBaseUrl();
 
     const passData: MotherHealthPassPayload = {
       app: 'MAATRISAARTHI',

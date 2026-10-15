@@ -46,12 +46,15 @@ import {
 import { getCurrentGeo } from '../core/visitLog';
 import { HealthPassQr } from './HealthPassQr';
 import { LiveCameraScannerModal } from './LiveCameraScannerModal';
+import { VisitConfirmModal } from './VisitConfirmModal';
+import { UserProfile } from '../core/firebaseAuth';
 
 interface FieldWorkerMobileViewProps {
   beneficiaries: Beneficiary[];
   selectedBeneficiary: Beneficiary;
   onSelectBeneficiary: (b: Beneficiary) => void;
-  onLogVisit: (b: Beneficiary, action: 'SCAN_QR' | 'PIN_UNLOCK', verified: boolean) => void;
+  onLogVisit: (b: Beneficiary, action: 'SCAN_QR' | 'PIN_UNLOCK' | 'VISIT_CONFIRMED', verified: boolean, motherConfirmed?: boolean) => void;
+  profile: UserProfile | null;
   language: Language;
   onAddVitalsRecord: (beneficiaryId: string, vital: VitalRecord) => void;
   onRegisterBeneficiary: (newB: Beneficiary) => void;
@@ -65,6 +68,7 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
   selectedBeneficiary,
   onSelectBeneficiary,
   onLogVisit,
+  profile,
   language,
   onAddVitalsRecord,
   onRegisterBeneficiary,
@@ -97,6 +101,7 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
   // ASHA QR Camera Scanner & Offline PIN State
   const [ashaScanModalOpen, setAshaScanModalOpen] = useState(false);
   const [showPassQr, setShowPassQr] = useState(false);
+  const [showVisitCode, setShowVisitCode] = useState(false);
   const [scanSuccessToast, setScanSuccessToast] = useState<string | null>(null);
 
   // Live Timer & Pill Reminder state
@@ -518,6 +523,18 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
                 <Camera className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                 <span>{language === 'mr' ? 'QR दाखवा' : language === 'hi' ? 'QR दिखाएं' : 'Show QR'}</span>
               </button>
+
+              {profile && (
+                <button
+                  type="button"
+                  onClick={() => setShowVisitCode(true)}
+                  className="bg-emerald-500/15 hover:bg-emerald-500/25 px-3 py-2 rounded-xl border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 shrink-0 shadow-xs cursor-pointer flex items-center gap-1.5 text-xs font-black transition"
+                  title="Generate a one-time visit code for the mother to confirm"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>{language === 'mr' ? 'भेट कोड' : language === 'hi' ? 'विज़िट कोड' : 'Visit code'}</span>
+                </button>
+              )}
             </div>
 
             {scanSuccessToast && (
@@ -993,6 +1010,17 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
         }}
         scannerTitle={language === 'mr' ? 'मातेचा QR पास स्कॅन करा' : "Scan Mother's MCP Pass"}
       />
+
+      {/* One-time visit code: the mother confirms it, which makes the visit "mother-confirmed" */}
+      {showVisitCode && profile && (
+        <VisitConfirmModal
+          profile={profile}
+          beneficiary={selectedBeneficiary}
+          language={language}
+          onClose={() => setShowVisitCode(false)}
+          onConfirmed={b => onLogVisit(b, 'VISIT_CONFIRMED', true, true)}
+        />
+      )}
 
       {/* Selected mother's unique MCP pass QR (for mothers without the app) */}
       {showPassQr && (

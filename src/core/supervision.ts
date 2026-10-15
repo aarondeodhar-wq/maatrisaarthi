@@ -56,6 +56,7 @@ export interface AshaRow {
   visitsPerDay: number[];            // oldest first, last entry is today
   scans: number;                     // QR scans + PIN unlocks in the window
   verifiedScans: number;             // scans where the mother's PIN was entered
+  confirmedVisits: number;           // visits the mother confirmed with the ASHA's one-time code
   scansWithoutLocation: number;
   farVisits: FarVisit[];
   unmatchedEdits: UnmatchedEdit[];
@@ -147,6 +148,7 @@ export function buildSupervisionReport(
       visitsPerDay,
       scans: myScans.length,
       verifiedScans: myScans.filter(v => v.verified).length,
+      confirmedVisits: myVisits.filter(v => v.motherConfirmed).length,
       scansWithoutLocation: myScans.filter(v => !v.geo).length,
       farVisits,
       unmatchedEdits,

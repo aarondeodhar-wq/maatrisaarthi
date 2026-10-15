@@ -140,6 +140,16 @@ export function App() {
     return { id: null, expired: false };
   });
   const [pendingPassId, setPendingPassId] = useState<string | null>(initialPass.id);
+  // A scanned visit-confirmation QR (/pass?confirm=<id>.<code>): the mother's app pre-fills the code
+  const [pendingConfirm, setPendingConfirm] = useState<string | null>(() => {
+    try {
+      const value = new URLSearchParams(window.location.search).get('confirm');
+      if (value) window.history.replaceState(null, '', window.location.pathname);
+      return value;
+    } catch (e) {
+      return null;
+    }
+  });
   const PASS_EXPIRED_MESSAGE = 'This QR has expired. Ask the mother to open her pass again: it refreshes automatically and is valid for 15 minutes.';
   const [passNotice, setPassNotice] = useState<string | null>(initialPass.expired ? PASS_EXPIRED_MESSAGE : null);
   const showPassExpired = () => setPassNotice(PASS_EXPIRED_MESSAGE);
@@ -148,6 +158,10 @@ export function App() {
   useEffect(() => {
     if (!isNativeApp()) return;
     const handleUrl = (url?: string) => {
+      try {
+        const confirm = url ? new URL(url).searchParams.get('confirm') : null;
+        if (confirm) setPendingConfirm(confirm);
+      } catch (e) {}
       const payload = url ? parseScannedQrPass(url) : null;
       if (payload && isPassFresh(payload)) setPendingPassId(payload.beneficiaryId);
       else if (payload) showPassExpired();
@@ -276,8 +290,8 @@ export function App() {
   };
 
   // Handler: an ASHA worker opened a mother's record by QR scan or PIN unlock
-  const handleLogVisit = (b: Beneficiary, action: 'SCAN_QR' | 'PIN_UNLOCK', verified: boolean) => {
-    logVisit(authProfile, b, action, verified, isOnline);
+  const handleLogVisit = (b: Beneficiary, action: 'SCAN_QR' | 'PIN_UNLOCK' | 'VISIT_CONFIRMED', verified: boolean, motherConfirmed: boolean = false) => {
+    logVisit(authProfile, b, action, verified, isOnline, motherConfirmed);
   };
 
   // Handler: Issue Doctor e-Prescription
@@ -525,6 +539,8 @@ export function App() {
             beneficiary={beneficiaries.find(b => b.ownerUid === authProfile?.uid || (!!authProfile?.beneficiaryId && b.id === authProfile.beneficiaryId))}
             userName={userName}
             userPhone={userPhone}
+            profile={authProfile}
+            prefillConfirm={pendingConfirm}
           />
         )}
 
@@ -555,6 +571,7 @@ export function App() {
               selectedBeneficiary={selectedBeneficiary}
               onSelectBeneficiary={(b) => setSelectedBeneficiaryId(b.id)}
               onLogVisit={handleLogVisit}
+              profile={authProfile}
               language={language}
               onAddVitalsRecord={handleAddVitalsRecord}
               onRegisterBeneficiary={handleRegisterBeneficiary}

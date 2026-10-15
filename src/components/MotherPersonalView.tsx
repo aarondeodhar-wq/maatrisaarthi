@@ -26,8 +26,12 @@ import { sendDirectWhatsApp, sendDirectSMS } from '../core/freeAlertsService';
 import { DevicePermissionsModal } from './DevicePermissionsModal';
 import { PatientRecordConsentPortal } from './PatientRecordConsentPortal';
 import { Beneficiary } from '../types';
+import { UserProfile } from '../core/firebaseAuth';
+import { confirmVisitCode } from '../core/visitCodes';
 
 interface MotherPersonalViewProps {
+  profile?: UserProfile | null;
+  prefillConfirm?: string | null; // "<beneficiaryId>.<code>" from a scanned visit-confirmation QR
   language: Language;
   userName: string;
   userPhone: string;
@@ -38,8 +42,24 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
   language,
   userName,
   userPhone,
-  beneficiary
+  beneficiary,
+  profile,
+  prefillConfirm
 }) => {
+  const [confirmCode, setConfirmCode] = useState<string>(() => (prefillConfirm ? prefillConfirm.split('.')[1] || '' : ''));
+  const [confirmState, setConfirmState] = useState<'IDLE' | 'BUSY' | 'DONE' | 'FAILED'>('IDLE');
+
+  const handleConfirmVisit = async () => {
+    if (!profile || !beneficiary) return;
+    setConfirmState('BUSY');
+    try {
+      const result = await confirmVisitCode(profile, beneficiary.id, confirmCode);
+      setConfirmState(result === 'CONFIRMED' ? 'DONE' : 'FAILED');
+    } catch (e) {
+      setConfirmState('FAILED');
+    }
+  };
+
   const [ifaTakenToday, setIfaTakenToday] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
@@ -282,6 +302,48 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Confirm an ASHA visit: second factor, with the one-time code the ASHA shows */}
+      {profile && beneficiary && (
+        <div id="mother-confirm-visit" className="silky-glass rounded-3xl p-5 shadow-2xl text-slate-900 dark:text-white space-y-3">
+          <h3 className="text-sm font-black flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-teal-600" />
+            {language === 'mr' ? 'आशा सेविकेची भेट निश्चित करा' : language === 'hi' ? 'आशा की विज़िट की पुष्टि करें' : 'Confirm your ASHA visit'}
+          </h3>
+          <p className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+            {language === 'mr'
+              ? 'आशा सेविकेने दाखवलेला ६-अंकी कोड येथे टाका. कोड १५ मिनिटे वैध असतो.'
+              : language === 'hi'
+              ? 'आशा द्वारा दिखाया गया 6 अंकों का कोड यहाँ डालें। कोड 15 मिनट मान्य है।'
+              : 'Enter the 6-digit code your ASHA worker shows you. It is valid for 15 minutes and works once.'}
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={confirmCode}
+              onChange={e => { setConfirmCode(e.target.value.replace(/\D/g, '')); setConfirmState('IDLE'); }}
+              placeholder="------"
+              className="flex-1 text-center tracking-[0.3em] font-mono text-lg font-black border border-slate-300 dark:border-white/20 rounded-xl p-2.5 bg-white dark:bg-black/40 outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            <button
+              type="button"
+              onClick={handleConfirmVisit}
+              disabled={confirmCode.length !== 6 || confirmState === 'BUSY' || confirmState === 'DONE'}
+              className="btn-pill-primary px-5 text-xs font-black cursor-pointer disabled:opacity-50"
+            >
+              {language === 'mr' ? 'निश्चित करा' : language === 'hi' ? 'पुष्टि करें' : 'Confirm'}
+            </button>
+          </div>
+          {confirmState === 'DONE' && (
+            <p className="text-xs font-black text-emerald-700 dark:text-emerald-300">Visit confirmed. Thank you.</p>
+          )}
+          {confirmState === 'FAILED' && (
+            <p className="text-xs font-black text-rose-600 dark:text-rose-400">That code is wrong, already used, or expired. Ask your ASHA worker for a new code.</p>
+          )}
+        </div>
+      )}
 
       {/* 8-Contact ANC Timeline Checklist */}
       <div id="tour-mother-schedule" className="silky-glass rounded-3xl p-6 shadow-2xl text-slate-900 dark:text-white space-y-4">

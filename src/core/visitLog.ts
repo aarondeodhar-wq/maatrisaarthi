@@ -50,7 +50,8 @@ export async function logVisit(
   beneficiary: Pick<Beneficiary, 'id'>,
   action: VisitAction,
   verified: boolean,
-  isOnline: boolean = navigator.onLine
+  isOnline: boolean = navigator.onLine,
+  motherConfirmed: boolean = false
 ): Promise<void> {
   if (!profile || isDemoProfile(profile) || profile.role !== 'ASHA_WORKER' || !profile.approved) return;
   const geo = await getCurrentGeo();
@@ -61,6 +62,7 @@ export async function logVisit(
     beneficiaryId: beneficiary.id,
     action,
     verified,
+    ...(motherConfirmed ? { motherConfirmed: true } : {}),
     clientAt: new Date().toISOString(),
     ...(geo ? { geo } : {})
   };
