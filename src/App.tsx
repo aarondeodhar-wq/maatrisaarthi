@@ -613,6 +613,11 @@ export function App() {
           )
         )}
       </main>
+
+      {/* Minimal Footer (inside the content column so it cannot squeeze it in the sidebar layout) */}
+      <footer className="max-w-7xl mx-auto w-full px-4 py-4 text-center text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200/50 dark:border-white/10 mt-8">
+        <p>MaatriSaarthi • Real-Time Maternal & Child Health Platform</p>
+      </footer>
       </div>
 
       {/* Android app: bottom tab bar ("More" opens the drawer with settings and sign out) */}
@@ -696,10 +701,6 @@ export function App() {
         />
       )}
 
-      {/* Minimal Footer */}
-      <footer className="max-w-7xl mx-auto w-full px-4 py-4 text-center text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200/50 dark:border-white/10 mt-8">
-        <p>MaatriSaarthi • Real-Time Maternal & Child Health Platform</p>
-      </footer>
     </div>
   );
 }
