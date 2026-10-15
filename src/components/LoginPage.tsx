@@ -39,7 +39,7 @@ import {
   Download
 } from 'lucide-react';
 import { Beneficiary, VitalRecord } from '../types';
-import { registerUserAccount, loginWithGoogleAccount, signInWithPassword, ensureUserProfile, linkBeneficiaryToProfile, describeAuthError, makeDemoProfile, UserProfile } from '../core/firebaseAuth';
+import { registerUserAccount, loginWithGoogleAccount, signInWithPassword, ensureUserProfile, linkBeneficiaryToProfile, describeAuthError, makeDemoProfile, isDemoLogin, UserProfile } from '../core/firebaseAuth';
 import { dispatchRealSmsOtp, verifyRealSmsOtp } from '../core/realOtpService';
 import { saveBeneficiaryToCloud } from '../core/offlineStore';
 import { calculateEDD, calculateGestationalWeeks, generateANCSchedule, toLocalDateString } from '../core/protocolEngine';
@@ -293,6 +293,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     if (loginMethod === 'PASSWORD') {
       if (!userInput.trim() || !passwordInput) {
         setErrorMessage('Please enter your mobile number and password.');
+        return;
+      }
+      if (isDemoLogin(userInput, passwordInput)) {
+        onLoginSuccess(makeDemoProfile(selectedRole));
         return;
       }
       setIsVerifying(true);
@@ -876,6 +880,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   </div>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">
                     {language === 'en' ? 'Sample data only. Nothing is saved to the cloud.' : 'फक्त नमुना माहिती. क्लाउडवर काहीही जतन होत नाही.'}
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                    Demo account (any role, Password tab): <span className="font-mono">demo</span> / <span className="font-mono">demo1234</span>.
+                    QR demo: open Mother, show the pass QR, scan it from the ASHA scanner, PIN <span className="font-mono">4829</span>.
                   </p>
                 </div>
               </div>

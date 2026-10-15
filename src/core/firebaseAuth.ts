@@ -53,6 +53,14 @@ export interface UserProfile {
 // app on the built-in sample data so it can be shown without real credentials.
 const DEMO_UID_PREFIX = 'demo_';
 
+// One hardcoded demo account for every role, on the website and in the app.
+// It is local-only (see above), so these credentials grant no access to real data.
+export const DEMO_LOGIN = { id: 'demo', password: 'demo1234' };
+
+export function isDemoLogin(identifier: string, password: string): boolean {
+  return identifier.trim().toLowerCase() === DEMO_LOGIN.id && password === DEMO_LOGIN.password;
+}
+
 export function isDemoProfile(profile: UserProfile | null | undefined): boolean {
   return !!profile && profile.uid.startsWith(DEMO_UID_PREFIX);
 }
