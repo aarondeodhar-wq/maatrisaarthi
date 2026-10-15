@@ -193,13 +193,13 @@ export function computeKAnonymizedWardMetrics(
   const withVitals = wardMothers.filter(b => latestVital(b));
   const severeAnemia = withVitals.filter(b => {
     const v = latestVital(b);
-    return v.hemoglobin > 0 && v.hemoglobin < 7.0;
+    return v.hemoglobin !== undefined && v.hemoglobin > 0 && v.hemoglobin < 7.0;
   }).length;
   const ghtn = withVitals.filter(b => {
     const v = latestVital(b);
     return v.systolicBP >= 140 || v.diastolicBP >= 90;
   }).length;
-  const gdm = withVitals.filter(b => latestVital(b).bloodSugar >= 140).length;
+  const gdm = withVitals.filter(b => (latestVital(b).bloodSugar ?? 0) >= 140).length;
 
   return {
     wardName,

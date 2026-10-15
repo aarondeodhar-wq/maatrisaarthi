@@ -190,7 +190,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
       />
 
       {/* Slide-in Sidebar Panel */}
-      <aside className="relative w-84 max-w-[88vw] h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-teal-500/20 shadow-2xl p-4 sm:p-5 flex flex-col justify-between text-slate-900 dark:text-white z-10 overflow-y-auto animate-slideRight">
+      <aside className="relative w-84 max-w-[88vw] h-[100dvh] min-h-[100dvh] max-h-[100dvh] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-teal-500/20 shadow-2xl p-4 sm:p-5 flex flex-col justify-between text-slate-900 dark:text-white z-10 overflow-y-auto animate-slideRight">
         
         {/* Tier 1: Header + User Profile */}
         <div className="space-y-4">

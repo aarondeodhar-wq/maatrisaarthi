@@ -200,7 +200,7 @@ export const RegistryDueList: React.FC<RegistryDueListProps> = ({
 
                     <td className="p-4">
                       <div className="font-mono font-black text-slate-950 dark:text-white text-xs whitespace-nowrap">
-                        Hb <span className={b.vitalsHistory[0]?.hemoglobin < 7 ? 'text-rose-600 dark:text-rose-400 font-black' : ''}>{b.vitalsHistory[0]?.hemoglobin ?? '-'}</span>
+                        Hb <span className={(b.vitalsHistory[0]?.hemoglobin ?? 99) < 7 ? 'text-rose-600 dark:text-rose-400 font-black' : ''}>{b.vitalsHistory[0]?.hemoglobin ?? '-'}</span>
                       </div>
                       <div className="font-mono font-black text-slate-950 dark:text-white text-xs whitespace-nowrap">
                         BP {b.vitalsHistory[0] ? `${b.vitalsHistory[0].systolicBP}/${b.vitalsHistory[0].diastolicBP}` : '-'}

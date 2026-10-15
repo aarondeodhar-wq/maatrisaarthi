@@ -119,33 +119,33 @@ export function exportBeneficiaryToWordDoc(beneficiary: Beneficiary): void {
     <tbody>
       <tr>
         <td>Blood Pressure (BP)</td>
-        <td><strong>${latestVital?.systolicBP || 120} / ${latestVital?.diastolicBP || 80} mmHg</strong></td>
+        <td><strong>${latestVital?.systolicBP ? `${latestVital.systolicBP} / ${latestVital.diastolicBP} mmHg` : '<em>Not measured</em>'}</strong></td>
         <td>&lt; 140/90 mmHg</td>
-        <td>${(latestVital?.systolicBP || 120) >= 140 || (latestVital?.diastolicBP || 80) >= 90 ? 'ELEVATED - Risk of Pre-Eclampsia' : 'Normal Normotensive'}</td>
+        <td>${!latestVital?.systolicBP ? '-' : latestVital.systolicBP >= 140 || latestVital.diastolicBP >= 90 ? 'ELEVATED - Risk of Pre-Eclampsia' : 'Normal Normotensive'}</td>
       </tr>
       <tr>
         <td>Hemoglobin (Hb)</td>
-        <td><strong>${latestVital?.hemoglobin || 11.0} g/dL</strong></td>
+        <td><strong>${latestVital?.hemoglobin !== undefined ? `${latestVital.hemoglobin} g/dL` : '<em>Not measured</em>'}</strong></td>
         <td>&ge; 11.0 g/dL</td>
-        <td>${(latestVital?.hemoglobin || 11.0) < 7.0 ? 'SEVERE ANEMIA (Emergency IV Iron)' : (latestVital?.hemoglobin || 11.0) < 10.0 ? 'Moderate Anemia (Oral IFA 2x)' : (latestVital?.hemoglobin || 11.0) < 11.0 ? 'Mild Anemia' : 'Normal Hb'}</td>
+        <td>${latestVital?.hemoglobin === undefined ? '-' : latestVital.hemoglobin < 7.0 ? 'SEVERE ANEMIA (Emergency IV Iron)' : latestVital.hemoglobin < 10.0 ? 'Moderate Anemia (Oral IFA 2x)' : latestVital.hemoglobin < 11.0 ? 'Mild Anemia' : 'Normal Hb'}</td>
       </tr>
       <tr>
         <td>Blood Sugar</td>
-        <td><strong>${latestVital?.bloodSugar || 95} mg/dL</strong></td>
+        <td><strong>${latestVital?.bloodSugar !== undefined ? `${latestVital.bloodSugar} mg/dL` : '<em>Not measured</em>'}</strong></td>
         <td>70 - 140 mg/dL</td>
-        <td>${(latestVital?.bloodSugar || 95) > 140 ? 'ELEVATED - Screening for GDM Required' : 'Normal Glycemic Control'}</td>
+        <td>${latestVital?.bloodSugar === undefined ? '-' : latestVital.bloodSugar > 140 ? 'ELEVATED - Screening for GDM Required' : 'Normal Glycemic Control'}</td>
       </tr>
       <tr>
         <td>Maternal Weight</td>
-        <td><strong>${latestVital?.weightKg || 54} kg</strong></td>
+        <td><strong>${latestVital?.weightKg !== undefined ? `${latestVital.weightKg} kg` : '<em>Not measured</em>'}</strong></td>
         <td>Baseline Tracking</td>
-        <td>Adequate Gestational Weight Gain</td>
+        <td>${latestVital?.weightKg !== undefined && latestVital.weightKg < 45 ? 'Underweight - nutrition support' : '-'}</td>
       </tr>
       <tr>
         <td>Urine Protein</td>
-        <td><strong>${latestVital?.urineProtein || 'NIL'}</strong></td>
+        <td><strong>${latestVital?.urineProtein || '<em>Not measured</em>'}</strong></td>
         <td>NIL / Negative</td>
-        <td>${latestVital?.urineProtein && latestVital.urineProtein !== 'NIL' ? 'Proteinuria Present' : 'Normal NIL'}</td>
+        <td>${!latestVital?.urineProtein ? '-' : latestVital.urineProtein !== 'NIL' ? 'Proteinuria Present' : 'Normal NIL'}</td>
       </tr>
     </tbody>
   </table>

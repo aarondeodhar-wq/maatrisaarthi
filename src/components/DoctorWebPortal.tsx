@@ -303,7 +303,7 @@ export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
                     {/* Vitals Summary Pills */}
                     <div className="mt-2.5 flex flex-wrap gap-1.5 text-[10px]">
                       <span className={`px-2 py-0.5 rounded-lg font-mono font-bold border ${
-                        b.vitalsHistory[0]?.hemoglobin < 7 ? 'bg-rose-600 text-white border-rose-500' : 'bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-slate-300 border-slate-300 dark:border-white/10'
+                        (b.vitalsHistory[0]?.hemoglobin ?? 99) < 7 ? 'bg-rose-600 text-white border-rose-500' : 'bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-slate-300 border-slate-300 dark:border-white/10'
                       }`}>
                         Hb: {b.vitalsHistory[0]?.hemoglobin || '--'} g/dL
                       </span>
@@ -572,14 +572,14 @@ export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
                   <div key={idx} className="p-3 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10 text-xs space-y-1">
                     <div className="flex justify-between font-black text-slate-950 dark:text-white">
                       <span>{v.date} ({v.gestationalWeek} wks)</span>
-                      <span className={v.hemoglobin < 7 ? 'text-rose-600 dark:text-rose-400 font-black' : 'text-slate-800 dark:text-slate-200'}>
-                        Hb: {v.hemoglobin} g/dL
+                      <span className={(v.hemoglobin ?? 99) < 7 ? 'text-rose-600 dark:text-rose-400 font-black' : 'text-slate-800 dark:text-slate-200'}>
+                        Hb: {v.hemoglobin ?? 'not measured'}{v.hemoglobin !== undefined ? ' g/dL' : ''}
                       </span>
                     </div>
                     <div className="flex justify-between text-[11px] text-slate-700 dark:text-slate-300 font-bold">
                       <span>BP: {v.systolicBP}/{v.diastolicBP} mmHg</span>
-                      <span>Sugar: {v.bloodSugar} mg/dL</span>
-                      <span>Weight: {v.weightKg} kg</span>
+                      <span>Sugar: {v.bloodSugar !== undefined ? `${v.bloodSugar} mg/dL` : 'not measured'}</span>
+                      <span>Weight: {v.weightKg !== undefined ? `${v.weightKg} kg` : 'not measured'}</span>
                     </div>
                   </div>
                 ))}

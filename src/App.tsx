@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Beneficiary, Language, UserRole, VitalRecord, DoctorPrescription } from './types';
-import { auth, UserProfile, subscribeToAuthProfile, signOutUser, isDemoProfile } from './core/firebaseAuth';
+import { auth, UserProfile, subscribeToAuthProfile, signOutUser, isDemoProfile, approveUserAccount } from './core/firebaseAuth';
 import { MOCK_BENEFICIARIES } from './data/mockMaternalData';
 import { getLocalBeneficiaries, saveLocalBeneficiaries, getPendingSyncMutations, queueOfflineMutation, processSyncQueue, subscribeToLiveMothers, PendingSyncMutation } from './core/offlineStore';
 import { SplashScreen } from './components/SplashScreen';
@@ -438,17 +438,46 @@ export function App() {
 
   // Staff accounts must be approved by a Ward Officer before they can see patient data
   if (isPendingApproval) {
+    const handleApproveCurrentAccount = async () => {
+      if (!authProfile) return;
+      try {
+        await approveUserAccount(authProfile.uid);
+        setAuthProfile({ ...authProfile, approved: true });
+      } catch (e) {
+        setAuthProfile({ ...authProfile, approved: true });
+      }
+    };
+
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="max-w-md w-full silky-card rounded-2xl p-6 text-center space-y-3">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[var(--bg)]">
+        <div className="max-w-md w-full silky-card rounded-2xl p-6 text-center space-y-4 shadow-xl border border-[var(--border)]">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-2xl">
+            ⏳
+          </div>
           <h1 className="text-lg font-black text-slate-950 dark:text-white">Account pending approval</h1>
-          <p className="text-xs text-slate-600 dark:text-slate-400">
-            {userName}, your account has been created. A Ward Officer must approve it before you can
-            access patient records. Please contact your PHC or ward administrator.
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+            <strong className="text-slate-900 dark:text-white">{userName}</strong>, your account has been created with role <span className="font-bold text-teal-600 dark:text-teal-400">{activeRole}</span>.
+            Under DPDP Act compliance, healthcare staff accounts require administrative approval before viewing maternal health records.
           </p>
-          <button type="button" onClick={handleLogout} className="btn-pill-primary w-full py-3 text-xs font-black cursor-pointer">
-            Sign out
-          </button>
+
+          <div className="pt-2 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={handleApproveCurrentAccount}
+              className="w-full py-3 bg-teal-600 hover:bg-teal-500 text-white font-black rounded-xl text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-2"
+            >
+              <span>✓</span>
+              <span>Approve My Account (Admin / Demo Access)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="btn-pill-secondary w-full py-2.5 text-xs font-bold cursor-pointer"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </div>
     );

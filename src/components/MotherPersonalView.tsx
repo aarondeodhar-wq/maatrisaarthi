@@ -605,70 +605,9 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
       )}
 
       {/* Patient Record Consent & Auto-Lock Portal */}
-      {showConsentPortal && (
+      {showConsentPortal && beneficiary && (
         <PatientRecordConsentPortal
-          beneficiary={beneficiary || {
-            id: 'ben_001',
-            rchId: 'MH-PUN-2026-8819',
-            name: userName,
-            age: 24,
-            phone: userPhone,
-            husbandName: 'Rajesh Shinde',
-            village: 'Koregaon Bhima',
-            ward: 'Shirur Taluka Ward 4',
-            district: 'Pune Rural',
-            assignedAsha: {
-              name: 'Savita Patil',
-              phone: '+91 97654 32101'
-            },
-            lmp: '2026-03-01',
-            edd: '2026-11-18',
-            currentGestationalWeeks: 26,
-            gravidity: 1,
-            parity: 0,
-            hasPrevCesarean: false,
-            hasPastStillbirth: false,
-            bloodGroup: 'B+',
-            currentRiskTier: 'GREEN',
-            mlRiskScore: 0.12,
-            riskFactors: [],
-            vitalsHistory: [
-              {
-                id: 'vit_001',
-                date: '2026-08-10',
-                gestationalWeek: 26,
-                systolicBP: 120,
-                diastolicBP: 80,
-                hemoglobin: 11.2,
-                bloodSugar: 95,
-                weightKg: 54,
-                urineProtein: 'NIL',
-                symptoms: {
-                  hasVaginalBleeding: false,
-                  hasSevereHeadache: false,
-                  hasBlurredVision: false,
-                  hasFacialEdema: false,
-                  hasReducedFetalMovement: false,
-                  hasConvulsions: false,
-                  hasHighFever: false
-                },
-                mlRiskScore: 0.12,
-                riskTier: 'GREEN',
-                riskReasons: [],
-                recordedBy: 'Savita Patil (ASHA)',
-                facility: 'Koregaon Bhima PHC',
-                syncStatus: 'SYNCED'
-              }
-            ],
-            ancSchedule: [],
-            prescriptions: [],
-            audioNotes: [],
-            dpdpConsent: createDefaultDPDPConsent(language),
-            qrAuthToken: 'PASS_8819',
-            accessPin: '',
-            registeredAt: new Date().toISOString(),
-            lastSyncedAt: new Date().toISOString()
-          }}
+          beneficiary={beneficiary}
           language={language}
           onClose={() => setShowConsentPortal(false)}
         />

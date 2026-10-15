@@ -318,7 +318,7 @@ export const PatientRecordConsentPortal: React.FC<PatientRecordConsentPortalProp
                     <Gauge className="w-3.5 h-3.5 text-teal-400" />
                   </div>
                   <div className="text-base font-black text-white font-mono mt-1">
-                    {latestVital?.systolicBP || 120}/{latestVital?.diastolicBP || 80} <span className="text-[10px] font-normal text-slate-400">mmHg</span>
+                    {latestVital?.systolicBP ? <>{latestVital.systolicBP}/{latestVital.diastolicBP} <span className="text-[10px] font-normal text-slate-400">mmHg</span></> : <span className="text-xs text-slate-400">not measured</span>}
                   </div>
                 </div>
 
@@ -329,7 +329,7 @@ export const PatientRecordConsentPortal: React.FC<PatientRecordConsentPortalProp
                     <Droplets className="w-3.5 h-3.5 text-rose-400" />
                   </div>
                   <div className="text-base font-black text-rose-300 font-mono mt-1">
-                    {latestVital?.hemoglobin || 11.0} <span className="text-[10px] font-normal text-slate-400">g/dL</span>
+                    {latestVital?.hemoglobin !== undefined ? <>{latestVital.hemoglobin} <span className="text-[10px] font-normal text-slate-400">g/dL</span></> : <span className="text-xs text-slate-400">not measured</span>}
                   </div>
                 </div>
 
@@ -340,7 +340,7 @@ export const PatientRecordConsentPortal: React.FC<PatientRecordConsentPortalProp
                     <Activity className="w-3.5 h-3.5 text-amber-400" />
                   </div>
                   <div className="text-base font-black text-white font-mono mt-1">
-                    {latestVital?.bloodSugar || 95} <span className="text-[10px] font-normal text-slate-400">mg/dL</span>
+                    {latestVital?.bloodSugar !== undefined ? <>{latestVital.bloodSugar} <span className="text-[10px] font-normal text-slate-400">mg/dL</span></> : <span className="text-xs text-slate-400">not measured</span>}
                   </div>
                 </div>
 
@@ -351,7 +351,7 @@ export const PatientRecordConsentPortal: React.FC<PatientRecordConsentPortalProp
                     <Scale className="w-3.5 h-3.5 text-emerald-400" />
                   </div>
                   <div className="text-base font-black text-white font-mono mt-1">
-                    {latestVital?.weightKg || 54} <span className="text-[10px] font-normal text-slate-400">kg</span>
+                    {latestVital?.weightKg !== undefined ? <>{latestVital.weightKg} <span className="text-[10px] font-normal text-slate-400">kg</span></> : <span className="text-xs text-slate-400">not measured</span>}
                   </div>
                 </div>
               </div>

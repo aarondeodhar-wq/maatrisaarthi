@@ -30,7 +30,7 @@ export const WebSidebar: React.FC<WebSidebarProps> = ({
   const items = getRoleNavItems(activeRole);
   const initial = (userName.trim()[0] || '?').toUpperCase();
   return (
-    <aside className="hidden lg:flex w-64 shrink-0 flex-col sticky top-0 h-screen bg-[var(--surface)] border-r border-[var(--border)]">
+    <aside className="hidden lg:flex w-64 shrink-0 flex-col sticky top-0 h-screen min-h-screen max-h-screen bg-[var(--surface)] border-r border-[var(--border)] z-30">
       <div className="flex items-center gap-2.5 px-5 h-16 border-b border-[var(--border)]">
         <img src="/logo.png" alt="" className="w-9 h-9 rounded-lg object-cover" />
         <div>

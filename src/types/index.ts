@@ -36,16 +36,17 @@ export interface VitalRecord {
   gestationalWeek: number;
   systolicBP: number;       // mmHg
   diastolicBP: number;      // mmHg
-  hemoglobin: number;       // g/dL
-  bloodSugar: number;       // mg/dL (Random / Fasting)
-  weightKg: number;
+  // Optional readings: missing means "not measured at this visit", never a default value
+  hemoglobin?: number;      // g/dL
+  bloodSugar?: number;      // mg/dL (Random / Fasting)
+  weightKg?: number;
   fundalHeightCm?: number;
   fetalHeartRate?: number;  // bpm (120-160 normal)
   spO2?: number;            // % oxygen saturation (pulse oximeter), used by the triage rules
   bodyTempF?: number;       // °F, used by the triage rules and the trained tree
   heartRate?: number;       // bpm (resting), used by the triage rules and the trained tree
   scanVisitId?: string;     // visit_logs id of the QR scan / PIN unlock that opened the editing window
-  urineProtein: 'NIL' | 'TRACE' | '1+' | '2+' | '3+';
+  urineProtein?: 'NIL' | 'TRACE' | '1+' | '2+' | '3+';
   symptoms: {
     hasVaginalBleeding: boolean;
     hasSevereHeadache: boolean;
