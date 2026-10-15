@@ -18,7 +18,7 @@ import { LiveSpotlightPointerTour } from './components/LiveSpotlightPointerTour'
 import { DevicePermissionsModal } from './components/DevicePermissionsModal';
 import { AuthLoadingScreen } from './components/AuthLoadingScreen';
 import { PatientRecordConsentPortal } from './components/PatientRecordConsentPortal';
-import { parseScannedQrPass } from './core/qrEngine';
+import { parseScannedQrPass, isPassFresh } from './core/qrEngine';
 import { isNativeApp } from './core/nativeAuth';
 import { App as CapacitorApp } from '@capacitor/app';
 import { isAppLayout } from './core/navigation';
@@ -129,23 +129,28 @@ export function App() {
 
   // Scanned QR deep link: remember the pass id, strip it from the URL, and only open the
   // record once an approved staff member is signed in and can load it from Firestore.
-  const [pendingPassId, setPendingPassId] = useState<string | null>(() => {
+  const [initialPass] = useState<{ id: string | null; expired: boolean }>(() => {
     try {
       const payload = parseScannedQrPass(window.location.href);
       if (payload) {
         window.history.replaceState(null, '', window.location.pathname);
-        return payload.beneficiaryId;
+        return isPassFresh(payload) ? { id: payload.beneficiaryId, expired: false } : { id: null, expired: true };
       }
     } catch (e) {}
-    return null;
+    return { id: null, expired: false };
   });
+  const [pendingPassId, setPendingPassId] = useState<string | null>(initialPass.id);
+  const PASS_EXPIRED_MESSAGE = 'This QR has expired. Ask the mother to open her pass again: it refreshes automatically and is valid for 15 minutes.';
+  const [passNotice, setPassNotice] = useState<string | null>(initialPass.expired ? PASS_EXPIRED_MESSAGE : null);
+  const showPassExpired = () => setPassNotice(PASS_EXPIRED_MESSAGE);
 
   // Android App Link: a pass QR scanned with the phone camera opens the app with its URL
   useEffect(() => {
     if (!isNativeApp()) return;
     const handleUrl = (url?: string) => {
       const payload = url ? parseScannedQrPass(url) : null;
-      if (payload) setPendingPassId(payload.beneficiaryId);
+      if (payload && isPassFresh(payload)) setPendingPassId(payload.beneficiaryId);
+      else if (payload) showPassExpired();
     };
     CapacitorApp.getLaunchUrl().then(res => handleUrl(res?.url)).catch(() => {});
     const listener = CapacitorApp.addListener('appUrlOpen', event => handleUrl(event.url));
@@ -382,6 +387,12 @@ export function App() {
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen font-sans flex flex-col justify-between selection:bg-teal-500 selection:text-slate-950">
+      {passNotice && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] max-w-md w-[calc(100%-2rem)] bg-amber-50 text-amber-900 border border-amber-300 rounded-xl shadow-lg p-3 text-xs font-bold flex items-start gap-2">
+          <span className="flex-1">{passNotice}</span>
+          <button type="button" onClick={() => setPassNotice(null)} className="font-black cursor-pointer" aria-label="Dismiss">✕</button>
+        </div>
+      )}
         <LoginPage
           onLoginSuccess={applyProfile}
           onRegisterBeneficiary={handleRegisterBeneficiary}
@@ -487,6 +498,12 @@ export function App() {
         onOpenAlertCenter={() => setIsAlertCenterOpen(true)}
       />
 
+      {passNotice && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] max-w-md w-[calc(100%-2rem)] bg-amber-50 text-amber-900 border border-amber-300 rounded-xl shadow-lg p-3 text-xs font-bold flex items-start gap-2">
+          <span className="flex-1">{passNotice}</span>
+          <button type="button" onClick={() => setPassNotice(null)} className="font-black cursor-pointer" aria-label="Dismiss">✕</button>
+        </div>
+      )}
       {/* Emergency SOS Toast */}
       {sosToast.open && (
         <div className="fixed top-20 right-4 z-50 max-w-md bg-red-600 text-white p-4 rounded-2xl shadow-2xl border-2 border-white animate-bounce flex items-start gap-3">

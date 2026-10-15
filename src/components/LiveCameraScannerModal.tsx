@@ -14,7 +14,7 @@ import {
   Users
 } from 'lucide-react';
 import jsQR from 'jsqr';
-import { parseScannedQrPass, MotherHealthPassPayload } from '../core/qrEngine';
+import { parseScannedQrPass, isPassFresh, MotherHealthPassPayload } from '../core/qrEngine';
 
 interface LiveCameraScannerModalProps {
   isOpen: boolean;
@@ -173,6 +173,13 @@ export const LiveCameraScannerModal: React.FC<LiveCameraScannerModalProps> = ({
   const handleRawQrDetected = (qrString: string) => {
     setScanStatus('DECRYPTING');
     const payload = parseScannedQrPass(qrString);
+
+    if (payload && !isPassFresh(payload)) {
+      // Valid MaatriSaarthi QR, but older than 15 minutes (or an old-format QR)
+      setScanStatus('IDLE');
+      setCameraError('This QR has expired. Ask the mother to open her pass again: it refreshes automatically and is valid for 15 minutes.');
+      return;
+    }
 
     if (payload) {
       setDetectedPass(payload);

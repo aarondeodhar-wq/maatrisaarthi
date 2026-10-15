@@ -42,9 +42,9 @@ export const PatientRecordConsentPortal: React.FC<PatientRecordConsentPortalProp
   // Stages: 'CONSENT_GATE' -> 'RECORD_UNLOCKED' -> 'AUTO_LOCKED'
   const [stage, setStage] = useState<'CONSENT_GATE' | 'RECORD_UNLOCKED' | 'AUTO_LOCKED'>('CONSENT_GATE');
   
-  // Timer Duration (defaults to 300 seconds = 5 minutes; option to switch to 600s = 10 minutes)
-  const [selectedTtlMinutes, setSelectedTtlMinutes] = useState<number>(5);
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(300);
+  // Timer Duration (fixed at 15 minutes)
+  const [selectedTtlMinutes, setSelectedTtlMinutes] = useState<number>(15);
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(900);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
 
   // Active vital record
@@ -72,7 +72,7 @@ export const PatientRecordConsentPortal: React.FC<PatientRecordConsentPortalProp
   }, [stage, isTimerRunning, remainingSeconds]);
 
   // Handle Patient Granting Consent (Selecting YES)
-  const handleGrantConsent = (minutes: number = 5) => {
+  const handleGrantConsent = (minutes: number = 15) => {
     setSelectedTtlMinutes(minutes);
     setRemainingSeconds(minutes * 60);
     setIsTimerRunning(true);
@@ -188,26 +188,7 @@ export const PatientRecordConsentPortal: React.FC<PatientRecordConsentPortalProp
               </div>
               <div className="flex items-center justify-between text-xs text-slate-400">
                 <span>प्रवेश कालावधी (Auto-Lock Window):</span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTtlMinutes(5)}
-                    className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition ${
-                      selectedTtlMinutes === 5 ? 'bg-teal-500 text-white' : 'bg-white/10 text-slate-300'
-                    }`}
-                  >
-                    5 Mins
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTtlMinutes(10)}
-                    className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition ${
-                      selectedTtlMinutes === 10 ? 'bg-teal-500 text-white' : 'bg-white/10 text-slate-300'
-                    }`}
-                  >
-                    10 Mins
-                  </button>
-                </div>
+                <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-teal-500 text-white">15 Mins</span>
               </div>
             </div>
 
