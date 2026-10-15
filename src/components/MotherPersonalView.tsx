@@ -18,7 +18,9 @@ import {
   ChevronRight,
   Info,
   Camera,
-  Lock
+  Lock,
+  Baby,
+  HeartPulse
 } from 'lucide-react';
 import { HealthPassQr } from './HealthPassQr';
 import { createDefaultDPDPConsent } from '../core/dpdpCompliance';
@@ -100,23 +102,24 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
   return (
     <div className="space-y-6 max-w-4xl mx-auto animate-fadeIn font-sans">
       {/* Top Banner Card: Personal Mother Profile */}
-      <div className="silky-glass rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden text-white">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 shadow-xl bg-gradient-to-br from-rose-600 via-pink-600 to-fuchsia-700 text-white">
+        <div className="pointer-events-none absolute -right-16 -top-16 w-56 h-56 rounded-full bg-white/10" />
+        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center text-white shadow-xl shadow-pink-600/30 shrink-0">
-              <Heart className="w-8 h-8 fill-white" />
+            <div className="w-14 h-14 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center text-white shrink-0">
+              <Heart className="w-7 h-7 fill-white" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-black text-slate-950 dark:text-white">{userName}</h2>
-                <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-400/30 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-xl sm:text-2xl font-black text-white">{userName}</h2>
+                <span className="bg-white text-emerald-700 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 shadow">
                   <CheckCircle2 className="w-3 h-3" />
                   <span>सक्रिय (Active)</span>
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-300 font-medium mt-1">{t.rchId[language]}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-300 flex items-center gap-1.5 mt-0.5">
-                <MapPin className="w-3.5 h-3.5 text-rose-400" />
+              <p className="text-xs text-rose-100 font-medium mt-1">{t.rchId[language]}</p>
+              <p className="text-xs text-rose-100 flex items-center gap-1.5 mt-0.5">
+                <MapPin className="w-3.5 h-3.5 text-white" />
                 <span>Koregaon Bhima PHC • Pune Rural</span>
               </p>
             </div>
@@ -126,16 +129,16 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowPermissionsModal(true)}
-              className="p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-slate-300 cursor-pointer shadow-md"
+              className="p-2.5 rounded-2xl bg-white/15 hover:bg-white/25 border border-white/30 text-white cursor-pointer"
               title="Device Permissions & Privacy"
             >
-              <ShieldCheck className="w-4 h-4 text-teal-300" />
+              <ShieldCheck className="w-4 h-4" />
             </button>
 
             <button
               id="tour-mother-qr"
               onClick={() => setShowQrModal(true)}
-              className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-lg shadow-teal-500/20 cursor-pointer border border-white/20 transition hover:scale-105"
+              className="bg-white text-rose-700 hover:bg-rose-50 font-black px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-lg cursor-pointer transition"
             >
               <QrCode className="w-4 h-4" />
               <span>{language === 'mr' ? 'माझा डिजिटल QR पास' : language === 'hi' ? 'मेरा डिजिटल QR पास' : 'View Real QR Pass'}</span>
@@ -144,33 +147,33 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
         </div>
 
         {/* Gestational Progress & EDD Banner */}
-        <div className="mt-6 pt-4 border-t border-white/20 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="silky-card p-3 rounded-2xl">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-300 block">
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-white/95 p-3.5 rounded-2xl shadow-sm">
+            <span className="text-[11px] font-bold text-slate-500 block">
               {language === 'mr' ? 'गर्भधारणा काळ:' : language === 'hi' ? 'गर्भावस्था चरण:' : 'Gestational Stage:'}
             </span>
-            <span className="text-sm font-black text-slate-950 dark:text-white flex items-center gap-1.5 mt-0.5">
-              <Activity className="w-4 h-4 text-purple-500 dark:text-purple-300" />
+            <span className="text-sm font-black text-slate-950 flex items-center gap-1.5 mt-0.5">
+              <Activity className="w-4 h-4 text-purple-500" />
               <span>{language === 'mr' ? '२६ आठवडे (२रा तिमाही)' : language === 'hi' ? '26 सप्ताह (दूसरी तिमाही)' : '26 Weeks (2nd Trimester)'}</span>
             </span>
           </div>
 
-          <div className="silky-card p-3 rounded-2xl">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-300 block">
+          <div className="bg-white/95 p-3.5 rounded-2xl shadow-sm">
+            <span className="text-[11px] font-bold text-slate-500 block">
               {language === 'mr' ? 'अपेक्षित प्रसूती:' : language === 'hi' ? 'अपेक्षित प्रसव तिथि:' : 'Estimated Due Date (EDD):'}
             </span>
-            <span className="text-sm font-black text-slate-950 dark:text-white flex items-center gap-1.5 mt-0.5">
-              <Calendar className="w-4 h-4 text-rose-500 dark:text-rose-300" />
+            <span className="text-sm font-black text-slate-950 flex items-center gap-1.5 mt-0.5">
+              <Calendar className="w-4 h-4 text-rose-500" />
               <span>{language === 'mr' ? '१८ नोव्हेंबर २०२६' : language === 'hi' ? '18 नवंबर 2026' : '18 Nov 2026'}</span>
             </span>
           </div>
 
-          <div className="silky-card p-3 rounded-2xl">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-300 block">
+          <div className="bg-white/95 p-3.5 rounded-2xl shadow-sm">
+            <span className="text-[11px] font-bold text-slate-500 block">
               {language === 'mr' ? 'जोखीम श्रेणी:' : language === 'hi' ? 'जोखिम श्रेणी:' : 'Risk Triage:'}
             </span>
-            <span className="text-sm font-black text-emerald-600 dark:text-emerald-300 flex items-center gap-1.5 mt-0.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+            <span className="text-sm font-black text-emerald-700 flex items-center gap-1.5 mt-0.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>{language === 'mr' ? 'सुरक्षित / सामान्य' : language === 'hi' ? 'सुरक्षित / सामान्य' : 'Low Risk / Normal'}</span>
             </span>
           </div>
@@ -344,6 +347,119 @@ export const MotherPersonalView: React.FC<MotherPersonalViewProps> = ({
           )}
         </div>
       )}
+
+      {/* Preterm Labor Awareness & Baby Health Card */}
+      <div className="silky-glass rounded-3xl p-6 shadow-2xl text-slate-900 dark:text-white space-y-4 border border-rose-200/60 dark:border-rose-500/20">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 dark:border-white/10 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-300 flex items-center justify-center">
+              <Baby className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-black text-slate-950 dark:text-white flex items-center gap-2">
+                <span>{language === 'mr' ? 'अकाली प्रसूती माहिती व बाळाचे आरोग्य' : language === 'hi' ? 'समय पूर्व प्रसव जानकारी एवं शिशु स्वास्थ्य' : 'Preterm Labor Awareness & Baby Health'}</span>
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                {language === 'mr' ? '३७ आठवड्यांपूर्वी प्रसूतीची लक्षणे ओळखणे व काळजी घेणे' : language === 'hi' ? '37 सप्ताह से पूर्व प्रसव के लक्षण पहचानना' : 'Recognizing early labor signs before 37 completed weeks'}
+              </p>
+            </div>
+          </div>
+          {beneficiary?.currentGestationalWeeks && (
+            <span className="font-mono text-xs font-black px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-500/30">
+              {beneficiary.currentGestationalWeeks} Weeks Gestation
+            </span>
+          )}
+        </div>
+
+        {/* Clear Clinical Definitions in Plain Language */}
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-rose-50/80 to-pink-50/80 dark:from-rose-950/30 dark:to-pink-950/20 border border-rose-200/80 dark:border-rose-500/30 space-y-2 text-xs leading-relaxed">
+          <div className="space-y-1">
+            <span className="font-black text-rose-900 dark:text-rose-200 block">
+              📖 {language === 'mr' ? 'अकाली प्रसूती (Preterm Labor) म्हणजे काय?' : language === 'hi' ? 'समय पूर्व प्रसव (Preterm Labor) क्या है?' : 'What is Preterm Labor?'}
+            </span>
+            <p className="text-slate-700 dark:text-slate-300">
+              {language === 'mr'
+                ? 'अकाली प्रसूती म्हणजे गर्भधारणेचे ३७ पूर्ण आठवडे होण्यापूर्वी सुरू होणारी प्रसूती. अकाली प्रसूतीचा धोका म्हणजे असे घटक ज्यांमुळे प्रसूती वेळेआधी होण्याची शक्यता जास्त असते.'
+                : language === 'hi'
+                ? 'समय से पहले प्रसव (Preterm Labor) का अर्थ है गर्भावस्था के 37 पूर्ण सप्ताह से पहले प्रसव पीड़ा या प्रसव शुरू होना। प्रीटर्म जोखिम का अर्थ है वे कारक जो समय से पहले प्रसव की संभावना बढ़ाते हैं।'
+                : 'Preterm labor means labor that starts before 37 completed weeks of pregnancy. Preterm-labor risk means factors suggesting that a pregnant woman may have a higher chance of going into labor too early.'}
+            </p>
+          </div>
+        </div>
+
+        {/* Warning Signs Checklist to watch for */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
+            <span>
+              {language === 'mr'
+                ? '३७ आठवड्यांपूर्वी खालील लक्षणे दिसल्यास त्वरित आशा ताई किंवा १०८ वर संपर्क करा:'
+                : language === 'hi'
+                ? '37 सप्ताह से पहले ये लक्षण दिखें तो तुरंत 108 या आशा दीदी से संपर्क करें:'
+                : 'Watch for these early labor warning signs before 37 weeks:'}
+            </span>
+          </h4>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1">
+              <span className="font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                ⏱️ {language === 'mr' ? 'पोट घट्ट होणे / आकुंचन' : language === 'hi' ? 'पेट में संकुचन / अकड़न' : 'Regular Contractions'}
+              </span>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                {language === 'mr' ? 'एका तासात ४ पेक्षा जास्त वेळा पोट दुखणे किंवा घट्ट होणे.' : language === 'hi' ? 'एक घंटे में 4 या अधिक बार पेट कसना या दर्द होना।' : 'Frequent tightenings occurring more than 4 times in an hour.'}
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1">
+              <span className="font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                💧 {language === 'mr' ? 'अचानक पाणी जाणे' : language === 'hi' ? 'पानी की थैली फटना' : 'Water Leaking (Ruptured Bag)'}
+              </span>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                {language === 'mr' ? 'अंगावरून सतत पाणी वाहणे किंवा पाण्याचा स्त्राव होणे.' : language === 'hi' ? 'योनि मार्ग से लगातार या अचानक पानी बहना।' : 'Continuous trickling or sudden gush of clear fluid from the vagina.'}
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1">
+              <span className="font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                ⚡ {language === 'mr' ? 'ओटीपोट व कंबरदुखी' : language === 'hi' ? 'पीठ के निचले हिस्से में दर्द' : 'Constant Low Backache & Pelvic Pressure'}
+              </span>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                {language === 'mr' ? 'बाळ खाली सरकल्यासारखा दाब जाणवणे व सतत कंबरदुखी.' : language === 'hi' ? 'शिशु का नीचे खिसकने का दबाव व लगातार पीठ दर्द।' : 'Persistent dull lower back pain and feeling like the baby is pushing down.'}
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1">
+              <span className="font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                🩸 {language === 'mr' ? 'रक्तस्त्राव किंवा डाग' : language === 'hi' ? 'रक्तस्राव या धब्बे' : 'Vaginal Bleeding or Spotting'}
+              </span>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                {language === 'mr' ? 'लाल किंवा तपकिरी रंगाचा स्त्राव आढळल्यास ताबडतोब रुग्णालयात जा.' : language === 'hi' ? 'लाल या भूरे रंग का स्राव दिखने पर तुरंत अस्पताल जाएं।' : 'Any pink, brown, or bright red blood requires immediate emergency check.'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Multiple Pregnancy or Fetal Placement Status Note */}
+        {beneficiary?.pregnancy && (
+          <div className="p-3.5 rounded-2xl bg-white/70 dark:bg-black/30 border border-slate-200 dark:border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <HeartPulse className="w-4 h-4 text-pink-500" />
+              <span className="font-black text-slate-900 dark:text-white">
+                {beneficiary.pregnancy.fetusCount === 2
+                  ? (language === 'mr' ? 'जुळे गर्भ (Twin Pregnancy): अतिरिक्त विश्रांती व देखरेख आवश्यक.' : 'Twin Pregnancy: Extra rest, hydration & bi-weekly monitoring advised.')
+                  : (language === 'mr' ? 'गर्भस्थिती: नियमित सुरक्षित मातृत्व देखरेख चालू.' : 'Fetal Status: Routine safe motherhood tracking active.')}
+              </span>
+            </div>
+            <a
+              href="tel:108"
+              className="text-[11px] font-black bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-xl flex items-center gap-1 transition"
+            >
+              <PhoneCall className="w-3.5 h-3.5" />
+              <span>108 SOS</span>
+            </a>
+          </div>
+        )}
+      </div>
 
       {/* 8-Contact ANC Timeline Checklist */}
       <div id="tour-mother-schedule" className="silky-glass rounded-3xl p-6 shadow-2xl text-slate-900 dark:text-white space-y-4">

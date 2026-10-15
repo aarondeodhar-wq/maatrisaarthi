@@ -4,6 +4,12 @@ import { exportBeneficiaryToWordDoc } from '../core/wordExportService';
 import { toLocalDateString } from '../core/protocolEngine';
 import { sendFreeWhatsAppAlert, sendFreeSmsAlert, describeAlertOutcome } from '../core/freeAlertsService';
 import { LiveCameraScannerModal } from './LiveCameraScannerModal';
+import {
+  evaluatePregnancyFactors,
+  PRE_EXISTING_CONDITIONS,
+  CONCEPTION_EVENTS,
+  PRIOR_COMPLICATIONS
+} from '../core/pregnancyRisk';
 import { 
   Stethoscope, 
   QrCode, 
@@ -28,7 +34,10 @@ import {
   Award,
   Laptop,
   Maximize2,
-  FileDown
+  FileDown,
+  Baby,
+  HeartPulse,
+  Info
 } from 'lucide-react';
 
 interface DoctorWebPortalProps {
@@ -84,6 +93,13 @@ export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
 
   // High Risk Priority Queue
   const highRiskQueue = beneficiaries.filter(b => b.currentRiskTier === 'RED');
+
+  // Obstetric & Preterm Risk Evaluation
+  const pregnancyEval = evaluatePregnancyFactors({
+    gestationalWeeks: selectedBeneficiary.currentGestationalWeeks,
+    pregnancy: selectedBeneficiary.pregnancy
+  });
+  const pregProfile = selectedBeneficiary.pregnancy;
 
   const handleScanQRSimulate = (b: Beneficiary) => {
     setScanSimulating(true);
@@ -362,6 +378,180 @@ export const DoctorWebPortal: React.FC<DoctorWebPortalProps> = ({
                     <span key={i} className="text-xs bg-white/20 border border-white/30 px-3 py-1 rounded-xl font-bold backdrop-blur-xs text-white">
                       • {r}
                     </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* OBSTETRIC & FETAL RISK DOSSIER (Multiple pregnancy, presentation, growth, pre-existing diseases, preterm risk) */}
+          <div className="silky-glass rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-200 dark:border-white/15 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 dark:border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <Baby className="w-5 h-5 text-pink-500" />
+                <h4 className="text-sm font-black text-slate-950 dark:text-white uppercase tracking-wider">
+                  {language === 'mr' ? 'गर्भस्थिती व अकाली प्रसूती जोखीम (Obstetric & Preterm Dossier)' : 'Obstetric, Fetal & Preterm Risk Dossier'}
+                </h4>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-black px-3 py-1 rounded-full ${
+                  pregnancyEval.pretermRisk.level === 'HIGH' ? 'bg-rose-600 text-white shadow-xs animate-pulse' :
+                  pregnancyEval.pretermRisk.level === 'MODERATE' ? 'bg-amber-500 text-slate-950 font-black' :
+                  'bg-emerald-600 text-white'
+                }`}>
+                  Preterm Risk: {pregnancyEval.pretermRisk.level}
+                </span>
+                <span className="text-[11px] font-mono font-bold bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-lg text-slate-700 dark:text-slate-300">
+                  {selectedBeneficiary.currentGestationalWeeks} wks
+                </span>
+              </div>
+            </div>
+
+            {/* Preterm Labor Definition & Clinical Risk Callout */}
+            <div className="p-3.5 bg-indigo-50/70 dark:bg-indigo-950/30 rounded-2xl border border-indigo-200 dark:border-indigo-500/30 text-xs space-y-1.5">
+              <div className="flex items-center gap-1.5 font-black text-indigo-950 dark:text-indigo-200">
+                <Info className="w-4 h-4 text-indigo-600" />
+                <span>Preterm Labor Definition & Evaluation (&lt; 37 Weeks):</span>
+              </div>
+              <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                <strong>Preterm labor:</strong> Labor that starts before 37 completed weeks of pregnancy. <strong>Preterm-labor risk:</strong> Clinical factors suggesting a pregnant woman has an elevated probability of early delivery.
+              </p>
+              {pregnancyEval.pretermRisk.reasons.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {pregnancyEval.pretermRisk.reasons.map((r, i) => (
+                    <span key={i} className="text-[10px] font-black bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 px-2.5 py-0.5 rounded-md border border-rose-200 dark:border-rose-500/30">
+                      ⚠️ {r}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 italic">No preterm labor risk factors detected.</p>
+              )}
+            </div>
+
+            {/* 3 Key Obstetric Metrics: Multiple pregnancy, Presentation, Growth */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1">
+                <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block">Fetus Count</span>
+                <div className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                  {pregProfile?.fetusCount === 2 ? '♊ Twins (Multiple Pregnancy)' :
+                   pregProfile?.fetusCount === 3 ? 'Triplets or more' :
+                   'Singleton (1 Baby)'}
+                </div>
+                {pregProfile?.fetusCount && pregProfile.fetusCount > 1 && (
+                  <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold block">Higher preterm & growth risk</span>
+                )}
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1">
+                <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block">Fetal Presentation (Placement)</span>
+                <div className="text-sm font-black text-slate-900 dark:text-white">
+                  {pregProfile?.presentation === 'CEPHALIC' ? 'Head Down (Cephalic - Normal)' :
+                   pregProfile?.presentation === 'BREECH' ? 'Breech (Bottom Down)' :
+                   pregProfile?.presentation === 'TRANSVERSE' ? 'Transverse Lie (Across)' :
+                   'Not Checked / Unknown'}
+                </div>
+                {selectedBeneficiary.currentGestationalWeeks >= 36 && (pregProfile?.presentation === 'BREECH' || pregProfile?.presentation === 'TRANSVERSE') && (
+                  <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold block">Delivery referral indicated</span>
+                )}
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1">
+                <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block">Fetal Growth</span>
+                <div className="text-sm font-black text-slate-900 dark:text-white">
+                  {pregProfile?.growth === 'SMALL_FOR_DATES' ? 'Small for Dates (IUGR Risk)' :
+                   pregProfile?.growth === 'LARGE_FOR_DATES' ? 'Large for Dates (Macrosomia)' :
+                   pregProfile?.growth === 'NORMAL' ? 'Normal for Dates' :
+                   'Not Checked / Unknown'}
+                </div>
+                {pregProfile?.growth === 'SMALL_FOR_DATES' && (
+                  <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold block">Doppler & specialist review needed</span>
+                )}
+              </div>
+            </div>
+
+            {/* Active Pre-Existing Conditions, Conception Events, & Past Complications */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              {/* Pre-Existing Conditions */}
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1.5">
+                <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300 block">
+                  Pre-Existing Diseases ({pregProfile?.conditions?.length || 0})
+                </span>
+                {(!pregProfile?.conditions || pregProfile.conditions.length === 0) ? (
+                  <p className="text-[11px] text-slate-400 italic">None recorded</p>
+                ) : (
+                  <div className="space-y-1">
+                    {pregProfile.conditions.map(id => {
+                      const def = PRE_EXISTING_CONDITIONS.find(c => c.id === id);
+                      return (
+                        <div key={id} className="p-1.5 rounded-lg bg-white dark:bg-black/40 border border-slate-200/80 dark:border-white/10 text-[11px]">
+                          <span className="font-black text-rose-700 dark:text-rose-300">{def?.label || id}</span>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">{def?.babyEffect}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Conception Events */}
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1.5">
+                <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300 block">
+                  Conception Events ({pregProfile?.conceptionEvents?.length || 0})
+                </span>
+                {(!pregProfile?.conceptionEvents || pregProfile.conceptionEvents.length === 0) ? (
+                  <p className="text-[11px] text-slate-400 italic">None recorded</p>
+                ) : (
+                  <div className="space-y-1">
+                    {pregProfile.conceptionEvents.map(id => {
+                      const def = CONCEPTION_EVENTS.find(c => c.id === id);
+                      return (
+                        <div key={id} className="p-1.5 rounded-lg bg-white dark:bg-black/40 border border-slate-200/80 dark:border-white/10 text-[11px]">
+                          <span className="font-black text-amber-700 dark:text-amber-300">{def?.label || id}</span>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">{def?.babyEffect}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Past Pregnancy Complications */}
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-1.5">
+                <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300 block">
+                  Past Complications ({pregProfile?.priorComplications?.length || 0})
+                </span>
+                {(!pregProfile?.priorComplications || pregProfile.priorComplications.length === 0) ? (
+                  <p className="text-[11px] text-slate-400 italic">None recorded</p>
+                ) : (
+                  <div className="space-y-1">
+                    {pregProfile.priorComplications.map(id => {
+                      const def = PRIOR_COMPLICATIONS.find(c => c.id === id);
+                      return (
+                        <div key={id} className="p-1.5 rounded-lg bg-white dark:bg-black/40 border border-slate-200/80 dark:border-white/10 text-[11px]">
+                          <span className="font-black text-rose-700 dark:text-rose-300">{def?.label || id}</span>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">{def?.babyEffect}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Explainable AI Trace */}
+            {pregnancyEval.explainability.length > 0 && (
+              <div className="pt-2 border-t border-slate-200/80 dark:border-white/10 space-y-1.5">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                  <HeartPulse className="w-3.5 h-3.5 text-teal-500" />
+                  <span>Explainable AI Risk Rationale:</span>
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {pregnancyEval.explainability.map((e, idx) => (
+                    <div key={idx} className="p-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[11px] flex justify-between gap-2">
+                      <span className="font-medium text-slate-800 dark:text-slate-200">{e.reason[language] || e.reason.en}</span>
+                      <span className="font-black text-rose-600 dark:text-rose-400 shrink-0">+{Math.round(e.impactScore)}</span>
+                    </div>
                   ))}
                 </div>
               </div>

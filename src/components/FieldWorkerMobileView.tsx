@@ -48,6 +48,12 @@ import { HealthPassQr } from './HealthPassQr';
 import { LiveCameraScannerModal } from './LiveCameraScannerModal';
 import { VisitConfirmModal } from './VisitConfirmModal';
 import { UserProfile } from '../core/firebaseAuth';
+import { DoctorPrescription } from '../types';
+import { WriteAccessBanner } from './WriteAccessBanner';
+import { MedicationPanel } from './MedicationPanel';
+import { PregnancyProfileCard } from './PregnancyProfileCard';
+import { VitalsSafetyPanel } from './VitalsSafetyPanel';
+import type { PregnancyProfile } from '../core/pregnancyRisk';
 
 interface FieldWorkerMobileViewProps {
   beneficiaries: Beneficiary[];
@@ -57,6 +63,8 @@ interface FieldWorkerMobileViewProps {
   profile: UserProfile | null;
   language: Language;
   onAddVitalsRecord: (beneficiaryId: string, vital: VitalRecord) => void;
+  onAddMedication?: (beneficiaryId: string, rx: DoctorPrescription) => void;
+  onUpdatePregnancy?: (beneficiaryId: string, profile: PregnancyProfile) => void;
   onRegisterBeneficiary: (newB: Beneficiary) => void;
   onSendEmergencySOS: (b: Beneficiary) => void;
   onRecordAudioNote: (b: Beneficiary, noteText: string) => void;
@@ -71,6 +79,8 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
   profile,
   language,
   onAddVitalsRecord,
+  onAddMedication,
+  onUpdatePregnancy,
   onRegisterBeneficiary,
   onSendEmergencySOS,
   onRecordAudioNote,
@@ -85,6 +95,12 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
   const [diastolicBP, setDiastolicBP] = useState(selectedBeneficiary.vitalsHistory[0]?.diastolicBP || 80);
   const [hemoglobin, setHemoglobin] = useState(selectedBeneficiary.vitalsHistory[0]?.hemoglobin || 11.0);
   const [bloodSugar, setBloodSugar] = useState(selectedBeneficiary.vitalsHistory[0]?.bloodSugar || 95);
+  // SpO2 is typed in from a pulse oximeter; blank means not measured
+  const [spO2Input, setSpO2Input] = useState<string>('');
+  // Blank = not measured: nothing is saved or scored for it
+  const [bodyTempInput, setBodyTempInput] = useState<string>('');
+  const [heartRateInput, setHeartRateInput] = useState<string>('');
+  const [urineInput, setUrineInput] = useState<'' | 'NIL' | 'TRACE' | '1+' | '2+' | '3+'>('');
   const [weightKg, setWeightKg] = useState(selectedBeneficiary.vitalsHistory[0]?.weightKg || 52);
   const [hasBleeding, setHasBleeding] = useState(false);
   const [hasSevereHeadache, setHasSevereHeadache] = useState(false);
@@ -92,6 +108,10 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
   const [hasFacialEdema, setHasFacialEdema] = useState(false);
   const [hasReducedFetalMovement, setHasReducedFetalMovement] = useState(false);
   const [hasConvulsions, setHasConvulsions] = useState(false);
+  // Preterm-labour signs: only changes the result before 37 completed weeks
+  const [hasRegularContractions, setHasRegularContractions] = useState(false);
+  const [hasLeakingFluid, setHasLeakingFluid] = useState(false);
+  const [hasLowerAbdominalPain, setHasLowerAbdominalPain] = useState(false);
 
   // Audio Note Recorder State
   const [isRecording, setIsRecording] = useState(false);
@@ -135,6 +155,17 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
     return () => clearInterval(interval);
   }, [timerRunning, activeTimerSeconds]);
 
+  // Sync form when selected beneficiary changes
+  useEffect(() => {
+    const latest = selectedBeneficiary.vitalsHistory[0];
+    setSystolicBP(latest?.systolicBP || 120);
+    setDiastolicBP(latest?.diastolicBP || 80);
+    setHemoglobin(latest?.hemoglobin || 11.0);
+    setBloodSugar(latest?.bloodSugar || 95);
+    setWeightKg(latest?.weightKg || 52);
+    setSpO2Input(latest?.spO2 !== undefined ? String(latest.spO2) : '');
+  }, [selectedBeneficiary.id]);
+
   // Live evaluated triage on current inputs
   const liveTriage = predictMaternalRisk({
     age: selectedBeneficiary.age,
@@ -150,7 +181,16 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
     hasBlurredVision,
     hasFacialEdema,
     hasReducedFetalMovement,
-    hasConvulsions
+    hasConvulsions,
+    gestationalWeeks: selectedBeneficiary.currentGestationalWeeks,
+    pregnancy: selectedBeneficiary.pregnancy,
+    hasRegularContractions,
+    hasLeakingFluid,
+    hasLowerAbdominalPain,
+    spO2: spO2Input.trim() ? Number(spO2Input) : undefined,
+    bodyTempF: bodyTempInput.trim() ? Number(bodyTempInput) : undefined,
+    heartRate: heartRateInput.trim() ? Number(heartRateInput) : undefined,
+    urineProtein: urineInput || undefined
   });
 
   const handleSaveVitals = (e: React.FormEvent) => {
@@ -164,7 +204,10 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
       hemoglobin,
       bloodSugar,
       weightKg,
-      urineProtein: liveTriage.riskTier === 'RED' ? '1+' : 'NIL',
+      ...(spO2Input.trim() ? { spO2: Math.round(Number(spO2Input)) } : {}),
+      urineProtein: urineInput || (liveTriage.riskTier === 'RED' ? '1+' : 'NIL'),
+      ...(bodyTempInput.trim() ? { bodyTempF: Number(bodyTempInput) } : {}),
+      ...(heartRateInput.trim() ? { heartRate: Math.round(Number(heartRateInput)) } : {}),
       symptoms: {
         hasVaginalBleeding: hasBleeding,
         hasSevereHeadache,
@@ -172,6 +215,9 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
         hasFacialEdema,
         hasReducedFetalMovement,
         hasConvulsions,
+        hasRegularContractions,
+        hasLeakingFluid,
+        hasLowerAbdominalPain,
         hasHighFever: false
       },
       mlRiskScore: liveTriage.riskProbability,
@@ -254,6 +300,14 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
       ],
       prescriptions: [],
       audioNotes: [],
+      pregnancy: {
+        fetusCount: 1,
+        presentation: 'UNKNOWN',
+        growth: 'NORMAL',
+        conditions: [],
+        conceptionEvents: [],
+        priorComplications: []
+      },
       dpdpConsent: createDefaultDPDPConsent(language, true, true, true),
       qrAuthToken: `MS-AUTH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
       accessPin: `${Math.floor(1000 + Math.random() * 9000)}`,
@@ -455,6 +509,23 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
                 : (language === 'mr' ? 'नियमित १ IFA लाल गोळी व कॅल्शियम गोळी चालू ठेवा.' : 'Continue regular daily IFA tablet + Calcium supplementation.')}
             </div>
 
+            {/* Preterm-Labor Risk Alert Strip */}
+            {selectedBeneficiary.currentGestationalWeeks < 37 && (
+              <div className="mt-3 p-2.5 rounded-xl bg-black/40 border border-white/20 text-xs flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-amber-300 font-black shrink-0">⏳ {language === 'mr' ? 'अकाली प्रसूती धोका (<३७ आठवडे):' : 'Preterm Risk (<37 Wks):'}</span>
+                  <span className="truncate text-[11px] font-bold text-white/90">
+                    {liveTriage.pretermRisk.reasons.length > 0 ? liveTriage.pretermRisk.reasons.join(', ') : (language === 'mr' ? 'नियमित देखरेख' : 'Standard monitoring')}
+                  </span>
+                </div>
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${
+                  liveTriage.pretermRisk.level === 'HIGH' ? 'bg-rose-500 text-white' : liveTriage.pretermRisk.level === 'MODERATE' ? 'bg-amber-400 text-slate-950 font-black' : 'bg-emerald-500 text-white'
+                }`}>
+                  {liveTriage.pretermRisk.level}
+                </span>
+              </div>
+            )}
+
             {/* 1-Tap Emergency Actions */}
             <div className="mt-4 grid grid-cols-2 gap-3 pt-3 border-t border-white/20">
               <a
@@ -605,6 +676,8 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
 
           {/* TAB: ENTER VITALS */}
           {(activeTab === 'ENTER_VITALS' || activeTab === 'CARD_TRIAGE') && (
+            <>
+            <WriteAccessBanner beneficiaryId={selectedBeneficiary.id} />
             <form onSubmit={handleSaveVitals} className="reference-hero-card p-6 sm:p-8 space-y-5 text-xs">
               <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-3">
                 <div>
@@ -625,6 +698,47 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Temperature, pulse, urine protein (blank = not measured) */}
+                <div className="reference-sub-card p-4 space-y-2">
+                  <label className="text-xs font-black text-slate-800 dark:text-slate-200">Temperature (°F)</label>
+                  <input type="number" step="0.1" min={95} max={110} value={bodyTempInput} onChange={e => setBodyTempInput(e.target.value)}
+                    placeholder="e.g. 98.6" className="w-full border border-slate-300 dark:border-white/20 rounded-xl p-2.5 bg-white dark:bg-black/40 font-bold" />
+                  <label className="text-xs font-black text-slate-800 dark:text-slate-200">Pulse / heart rate (bpm)</label>
+                  <input type="number" min={30} max={220} value={heartRateInput} onChange={e => setHeartRateInput(e.target.value)}
+                    placeholder="e.g. 80" className="w-full border border-slate-300 dark:border-white/20 rounded-xl p-2.5 bg-white dark:bg-black/40 font-bold" />
+                  <label className="text-xs font-black text-slate-800 dark:text-slate-200">Urine protein (dipstick)</label>
+                  <select value={urineInput} onChange={e => setUrineInput(e.target.value as typeof urineInput)}
+                    className="w-full border border-slate-300 dark:border-white/20 rounded-xl p-2.5 bg-white dark:bg-black/40 font-bold">
+                    <option value="">Not tested</option>
+                    <option value="NIL">Nil</option>
+                    <option value="TRACE">Trace</option>
+                    <option value="1+">1+</option>
+                    <option value="2+">2+</option>
+                    <option value="3+">3+</option>
+                  </select>
+                </div>
+
+                {/* SpO2 (manual entry, typed from the device; display only) */}
+                <div className="reference-sub-card p-4 space-y-2">
+                  <label className="flex justify-between font-bold text-slate-800 dark:text-slate-200 text-xs font-black">
+                    <span>SpO2 (%)</span>
+                    <span className="text-[10px] text-slate-500">optional</span>
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={50}
+                    max={100}
+                    value={spO2Input}
+                    onChange={e => setSpO2Input(e.target.value)}
+                    placeholder="e.g. 98"
+                    className="w-full border border-slate-300 dark:border-white/20 rounded-xl p-2.5 bg-white dark:bg-black/40 font-bold"
+                  />
+                  {spO2Input !== '' && (Number(spO2Input) < 50 || Number(spO2Input) > 100) && (
+                    <p className="text-[11px] font-bold text-rose-600">Enter a value between 50 and 100.</p>
+                  )}
+                </div>
+
                 {/* Hemoglobin */}
                 <div className="reference-sub-card p-4 space-y-2">
                   <div className="flex justify-between font-bold text-slate-800 dark:text-slate-200">
@@ -797,6 +911,77 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
                 </div>
               </div>
 
+              {/* Each reading against its safe range (if/else rules, vitalRanges.ts) */}
+              <VitalsSafetyPanel
+                systolicBP={systolicBP}
+                diastolicBP={diastolicBP}
+                hemoglobin={hemoglobin}
+                bloodSugar={bloodSugar}
+                weightKg={weightKg}
+                spO2={spO2Input}
+                bodyTemp={bodyTempInput}
+                heartRate={heartRateInput}
+                urine={urineInput}
+              />
+
+              {/* Preterm-labour warning signs (<37 completed weeks) */}
+              <div className="reference-sub-card p-4 space-y-2.5 border border-amber-300/70 dark:border-amber-500/30 bg-amber-50/60 dark:bg-amber-950/20">
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <span className="text-xs font-black text-amber-950 dark:text-amber-200 flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-amber-600" />
+                    <span>
+                      {language === 'mr'
+                        ? 'अकाली प्रसूती धोक्याची लक्षणे (<३७ पूर्ण आठवडे)'
+                        : language === 'hi'
+                        ? 'समय से पूर्व प्रसव के लक्षण (<37 पूर्ण सप्ताह)'
+                        : 'Preterm Labor Warning Signs (<37 Completed Weeks)'}
+                    </span>
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                    &lt; 37 Weeks Threshold
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-snug">
+                  {language === 'mr'
+                    ? 'अकाली प्रसूती म्हणजे ३७ पूर्ण आठवड्यांपूर्वी सुरू होणारी प्रसूती. ही लक्षणे दिसल्यास तातडीने रुग्णालय संदर्भ करा.'
+                    : language === 'hi'
+                    ? 'प्रीटर्म लेबर 37 पूर्ण सप्ताह से पहले प्रसव शुरू होना है। लक्षण दिखते ही तत्काल रेफरल करें।'
+                    : 'Preterm labor means labor starting before 37 completed weeks. Immediately evaluate for emergency referral.'}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {([
+                    [
+                      language === 'mr' ? 'नियमित आकुंचन (Contractions)' : language === 'hi' ? 'नियमित संकुचन' : 'Regular Contractions',
+                      hasRegularContractions,
+                      setHasRegularContractions
+                    ],
+                    [
+                      language === 'mr' ? 'पाणी जाणे (Leaking fluid)' : language === 'hi' ? 'पानी छूटना' : 'Leaking Amniotic Fluid',
+                      hasLeakingFluid,
+                      setHasLeakingFluid
+                    ],
+                    [
+                      language === 'mr' ? 'ओटीपोटात दुखणे (Abdominal pain)' : language === 'hi' ? 'निचले पेट में दर्द' : 'Lower Abdominal Pain',
+                      hasLowerAbdominalPain,
+                      setHasLowerAbdominalPain
+                    ]
+                  ] as [string, boolean, (v: boolean) => void][]).map(([text, on, set]) => (
+                    <button
+                      key={text}
+                      type="button"
+                      onClick={() => set(!on)}
+                      className={`p-2.5 rounded-xl border text-left text-xs font-black cursor-pointer transition ${
+                        on
+                          ? 'bg-rose-600 border-rose-600 text-white shadow-xs'
+                          : 'bg-white dark:bg-black/30 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/10'
+                      }`}
+                    >
+                      {text} {on ? '✓' : ''}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Primary Save Action Pill Button */}
               <button
                 type="submit"
@@ -806,6 +991,26 @@ export const FieldWorkerMobileView: React.FC<FieldWorkerMobileViewProps> = ({
                 <span>{language === 'mr' ? 'तपासणी सेव्ह करा (Save Vitals & Sync)' : language === 'hi' ? 'जांच सुरक्षित करें (Save Vitals)' : 'Save Vitals & Sync'}</span>
               </button>
             </form>
+            </>
+          )}
+
+          {/* MEDICINES: shown with the vitals form */}
+          {(activeTab === 'ENTER_VITALS' || activeTab === 'CARD_TRIAGE') && onAddMedication && (
+            <MedicationPanel
+              beneficiary={selectedBeneficiary}
+              signedInName={profile?.name || selectedBeneficiary.assignedAsha.name || 'ASHA Worker'}
+              onAdd={rx => onAddMedication(selectedBeneficiary.id, rx)}
+            />
+          )}
+
+          {/* PREGNANCY PROFILE: multiple pregnancy, placement, growth, diseases, complications */}
+          {(activeTab === 'ENTER_VITALS' || activeTab === 'CARD_TRIAGE') && onUpdatePregnancy && (
+            <PregnancyProfileCard
+              beneficiary={selectedBeneficiary}
+              requiresWindow={profile?.role === 'ASHA_WORKER'}
+              language={language}
+              onChange={p => onUpdatePregnancy(selectedBeneficiary.id, p)}
+            />
           )}
 
           {/* TAB: TIMERS & REMINDERS */}

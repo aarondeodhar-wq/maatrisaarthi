@@ -19,6 +19,8 @@ import { DevicePermissionsModal } from './components/DevicePermissionsModal';
 import { AuthLoadingScreen } from './components/AuthLoadingScreen';
 import { PatientRecordConsentPortal } from './components/PatientRecordConsentPortal';
 import { parseScannedQrPass, isPassFresh } from './core/qrEngine';
+import { grantWriteAccess, writeGrant, revokeAllWriteAccess } from './core/accessWindow';
+import type { PregnancyProfile } from './core/pregnancyRisk';
 import { isNativeApp } from './core/nativeAuth';
 import { App as CapacitorApp } from '@capacitor/app';
 import { isAppLayout } from './core/navigation';
@@ -207,11 +209,22 @@ export function App() {
     }
   };
 
+  // Opening a profile (login or role switch) must start at the top, not where the last screen was scrolled
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
+  }, []);
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [activeRole, authProfile?.uid]);
+
   // Restore the Firebase Auth session on reload; the role comes from the Firestore profile
   useEffect(() => {
     return subscribeToAuthProfile((profile) => {
       if (profile) applyProfile(profile);
-      else if (!auth.currentUser) setAuthProfile(null);
+      else if (!auth.currentUser) {
+        revokeAllWriteAccess();
+        setAuthProfile(null);
+      }
       setAuthReady(true);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -243,12 +256,19 @@ export function App() {
 
   // Handler: Add vital record from field worker or doctor
   const handleAddVitalsRecord = (beneficiaryId: string, vital: VitalRecord) => {
+    // ASHA workers may only write for a mother whose QR/PIN was checked in the last 15 minutes
+    const grant = writeGrant(beneficiaryId);
+    if (authProfile?.role === 'ASHA_WORKER' && !grant) {
+      alert('Editing window closed. Scan the mother\'s QR pass or enter her PIN again to save vitals.');
+      return;
+    }
     const target = beneficiaries.find(b => b.id === beneficiaryId);
     if (!target) return;
     // The author is the signed-in account, never a name typed or hardcoded in the form
     const signed: VitalRecord = authProfile
       ? {
           ...vital,
+          scanVisitId: grant?.visitId,
           recordedBy: authProfile.role === 'ASHA_WORKER' ? `${authProfile.name} (ASHA)` : authProfile.name,
           recordedByUid: authProfile.uid,
           recordedAt: new Date().toISOString()
@@ -291,7 +311,44 @@ export function App() {
 
   // Handler: an ASHA worker opened a mother's record by QR scan or PIN unlock
   const handleLogVisit = (b: Beneficiary, action: 'SCAN_QR' | 'PIN_UNLOCK' | 'VISIT_CONFIRMED', verified: boolean, motherConfirmed: boolean = false) => {
-    logVisit(authProfile, b, action, verified, isOnline, motherConfirmed);
+    logVisit(authProfile, b, action, verified, isOnline, motherConfirmed).then(visitId => {
+      // A scanned QR or entered PIN opens a 15-minute editing window, tied to that scan's visit row
+      if (visitId && (action === 'SCAN_QR' || action === 'PIN_UNLOCK')) grantWriteAccess(b.id, visitId);
+    });
+  };
+
+  // Handler: pregnancy profile (multiple pregnancy, placement, growth, diseases, complications).
+  // ASHA edits need an open 15-minute window, like vitals and medicines.
+  const handleUpdatePregnancy = (beneficiaryId: string, profile: PregnancyProfile) => {
+    const grant = writeGrant(beneficiaryId);
+    if (authProfile?.role === 'ASHA_WORKER' && !grant) {
+      alert('Editing window closed. Scan the mother\'s QR pass or enter her PIN again to change the pregnancy profile.');
+      return;
+    }
+    const target = beneficiaries.find(b => b.id === beneficiaryId);
+    if (!target) return;
+    const updated: Beneficiary = { ...target, pregnancy: { ...profile, scanVisitId: grant?.visitId } };
+    setBeneficiaries(prev => prev.map(b => (b.id === beneficiaryId ? updated : b)));
+    queueChange('UPDATE_PREGNANCY', updated);
+  };
+
+  // Handler: ASHA worker adds a medicine. Blocked once the 15-minute window has closed.
+  const handleAddMedication = (beneficiaryId: string, rx: DoctorPrescription) => {
+    const grant = writeGrant(beneficiaryId);
+    if (authProfile?.role === 'ASHA_WORKER' && !grant) {
+      alert('Editing window closed. Scan the mother\'s QR pass or enter her PIN again to add medicines.');
+      return;
+    }
+    const target = beneficiaries.find(b => b.id === beneficiaryId);
+    if (!target) return;
+    const stamped: DoctorPrescription = {
+      ...rx,
+      recordedByUid: authProfile?.uid,
+      scanVisitId: grant?.visitId
+    };
+    const updated: Beneficiary = { ...target, prescriptions: [stamped, ...target.prescriptions] };
+    setBeneficiaries(prev => prev.map(b => (b.id === beneficiaryId ? updated : b)));
+    queueChange('ISSUE_PRESCRIPTION', updated, { prescription: stamped });
   };
 
   // Handler: Issue Doctor e-Prescription
@@ -574,6 +631,8 @@ export function App() {
               profile={authProfile}
               language={language}
               onAddVitalsRecord={handleAddVitalsRecord}
+              onAddMedication={handleAddMedication}
+              onUpdatePregnancy={handleUpdatePregnancy}
               onRegisterBeneficiary={handleRegisterBeneficiary}
               onSendEmergencySOS={handleEmergencySOS}
               onRecordAudioNote={handleRecordAudioNote}

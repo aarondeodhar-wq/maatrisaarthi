@@ -16,6 +16,8 @@ This is a prototype. Read these limits before using it with real patients:
 - **There is no 108 integration.** The SOS button opens the phone dialer for 108, and a
   person must place the call.
 - Some screens still show demo content (sample mothers in `src/data/mockMaternalData.ts`).
+- **Random BP, sugar and SpO2 entry: declined.** Vitals are only recorded during structured ANC contacts under the verified time-limited QR/PIN scan window. Unverified ad-hoc entries are excluded to preserve clinical data integrity.
+- **Mother-side medicine entry: not added.** Prescriptions and medications can only be issued by PHC doctors or recorded by verified ASHA field workers during home visits; pregnant mothers cannot self-enter medications.
 
 ## Setup
 

@@ -5,7 +5,7 @@ import { doc, setDoc, collection, onSnapshot, query, where, serverTimestamp, get
 
 export interface PendingSyncMutation {
   id: string;
-  type: 'REGISTER_BENEFICIARY' | 'RECORD_VITALS' | 'UPDATE_CONSENT' | 'ISSUE_PRESCRIPTION' | 'VISIT_LOG';
+  type: 'REGISTER_BENEFICIARY' | 'RECORD_VITALS' | 'UPDATE_CONSENT' | 'ISSUE_PRESCRIPTION' | 'VISIT_LOG' | 'UPDATE_PREGNANCY';
   beneficiaryId: string;
   timestamp: string;
   // record: full beneficiary after the change. vital / prescription: the item added.

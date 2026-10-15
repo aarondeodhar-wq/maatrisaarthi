@@ -47,6 +47,18 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
 
+    // An ASHA worker may write clinical data for a mother only if it cites a QR scan or PIN
+    // unlock she logged for that same mother, and the server stamped that scan (syncedAt)
+    // within the last 15 minutes. The visit row is write-once, so the stamp cannot be forged.
+    function recentScan(visitId, beneficiaryId) {
+      return visitId is string
+        && exists(/databases/$(database)/documents/visit_logs/$(visitId))
+        && get(/databases/$(database)/documents/visit_logs/$(visitId)).data.ashaUid == request.auth.uid
+        && get(/databases/$(database)/documents/visit_logs/$(visitId)).data.beneficiaryId == beneficiaryId
+        && get(/databases/$(database)/documents/visit_logs/$(visitId)).data.action in ['SCAN_QR', 'PIN_UNLOCK']
+        && get(/databases/$(database)/documents/visit_logs/$(visitId)).data.syncedAt > request.time - duration.value(15, 'm');
+    }
+
     // ---------- User accounts ----------
     // Users create their own profile. Mothers are auto-approved; staff roles must
     // start unapproved and are approved by a Ward Officer (or in the Firebase console).
@@ -87,11 +99,18 @@ service cloud.firestore {
         || (isApprovedRole('ASHA_WORKER') && request.resource.data.assignedAshaUid == request.auth.uid)
         || (isMotherAccount() && request.resource.data.ownerUid == request.auth.uid);
 
+      // ASHA edits to vitals or medicines must cite a recent scan of this mother (see recentScan)
       allow update: if (isClinicalLead() && ownerUnchanged())
         || (isApprovedRole('ASHA_WORKER')
           && resource.data.assignedAshaUid == request.auth.uid
           && request.resource.data.assignedAshaUid == request.auth.uid
-          && ownerUnchanged())
+          && ownerUnchanged()
+          && (!changedKeys().hasAny(['vitalsHistory'])
+            || recentScan(request.resource.data.vitalsHistory[0].scanVisitId, beneficiaryId))
+          && (!changedKeys().hasAny(['prescriptions'])
+            || recentScan(request.resource.data.prescriptions[0].scanVisitId, beneficiaryId))
+          && (!changedKeys().hasAny(['pregnancy'])
+            || recentScan(request.resource.data.pregnancy.scanVisitId, beneficiaryId)))
         || (signedIn()
           && resource.data.ownerUid == request.auth.uid
           && changedKeys().hasOnly(['dpdpConsent', 'lastSyncedAt']));
@@ -106,7 +125,12 @@ service cloud.firestore {
     match /vitals_logs/{vitalId} {
       allow read: if isClinicalLead()
         || (isApprovedRole('ASHA_WORKER') && resource.data.recordedByUid == request.auth.uid);
-      allow create: if isStaff() && request.resource.data.recordedByUid == request.auth.uid;
+      // ASHA workers: only for a mother whose QR/PIN scan was recorded within the last 15 minutes
+      allow create: if (isApprovedRole('ASHA_WORKER')
+          && request.resource.data.recordedByUid == request.auth.uid
+          && recentScan(request.resource.data.scanVisitId, request.resource.data.beneficiaryId))
+        || ((isApprovedRole('PHC_DOCTOR') || isApprovedRole('WARD_OFFICER'))
+          && request.resource.data.recordedByUid == request.auth.uid);
       allow update: if isClinicalLead()
         || (isApprovedRole('ASHA_WORKER')
           && resource.data.recordedByUid == request.auth.uid
@@ -137,7 +161,11 @@ service cloud.firestore {
 
     match /prescriptions/{rxId} {
       allow read: if isClinicalLead();
-      allow create, update: if isApprovedRole('PHC_DOCTOR');
+      allow create: if isApprovedRole('PHC_DOCTOR')
+        || (isApprovedRole('ASHA_WORKER')
+          && request.resource.data.recordedByUid == request.auth.uid
+          && recentScan(request.resource.data.scanVisitId, request.resource.data.beneficiaryId));
+      allow update: if isApprovedRole('PHC_DOCTOR');
       allow delete: if isApprovedRole('WARD_OFFICER');
     }
 

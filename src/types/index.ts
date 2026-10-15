@@ -28,6 +28,8 @@ export interface DPDPConsent {
   }>;
 }
 
+import type { PregnancyProfile } from '../core/pregnancyRisk';
+
 export interface VitalRecord {
   id: string;
   date: string;
@@ -39,6 +41,10 @@ export interface VitalRecord {
   weightKg: number;
   fundalHeightCm?: number;
   fetalHeartRate?: number;  // bpm (120-160 normal)
+  spO2?: number;            // % oxygen saturation (pulse oximeter), used by the triage rules
+  bodyTempF?: number;       // °F, used by the triage rules and the trained tree
+  heartRate?: number;       // bpm (resting), used by the triage rules and the trained tree
+  scanVisitId?: string;     // visit_logs id of the QR scan / PIN unlock that opened the editing window
   urineProtein: 'NIL' | 'TRACE' | '1+' | '2+' | '3+';
   symptoms: {
     hasVaginalBleeding: boolean;
@@ -48,6 +54,9 @@ export interface VitalRecord {
     hasReducedFetalMovement: boolean;
     hasConvulsions: boolean;
     hasHighFever: boolean;
+    hasRegularContractions?: boolean;   // preterm-labour signs (only meaningful before 37 weeks)
+    hasLeakingFluid?: boolean;
+    hasLowerAbdominalPain?: boolean;
   };
   mlRiskScore: number;      // 0.0 to 1.0 probability
   riskTier: RiskTier;
@@ -109,6 +118,8 @@ export interface ANCContact {
 export interface DoctorPrescription {
   id: string;
   date: string;
+  recordedByUid?: string;   // set when a field worker (not a doctor) records a medicine
+  scanVisitId?: string;     // visit_logs id of the QR scan / PIN unlock that opened the editing window
   doctorId: string;
   doctorName: string;
   facility: string;
@@ -172,6 +183,7 @@ export interface Beneficiary {
   ancSchedule: ANCContact[];
   vitalsHistory: VitalRecord[];
   prescriptions: DoctorPrescription[];
+  pregnancy?: PregnancyProfile;   // multiple pregnancy, placement, growth, diseases, complications (see core/pregnancyRisk.ts)
   audioNotes: AudioNote[];
   dpdpConsent: DPDPConsent;
   qrAuthToken: string;      // Cryptographic QR token for instant doctor scanning

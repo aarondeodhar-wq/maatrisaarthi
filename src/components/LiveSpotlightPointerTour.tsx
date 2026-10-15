@@ -18,6 +18,7 @@ import {
   PhoneCall
 } from 'lucide-react';
 import { speakTutorialAudio, stopTutorialAudio, unlockAudioPipeline } from '../core/voiceTutorialService';
+import { isNativeApp } from '../core/nativeAuth';
 
 export interface SpotlightStep {
   id: string;
@@ -55,9 +56,9 @@ export const LiveSpotlightPointerTour: React.FC<LiveSpotlightPointerTourProps> =
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
   const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
-  // Mobile browsers/WebViews block speech until the user has tapped something. The tour auto-opens,
-  // so it stays silent until the first tap (Next, Back, or the speaker button).
-  const [audioReady, setAudioReady] = useState<boolean>(false);
+  // In the native mobile app, native Android TTS (android.speech.tts.TextToSpeech) does not require
+  // web gesture unlock. In web/mobile browsers, it stays silent until user interaction.
+  const [audioReady, setAudioReady] = useState<boolean>(() => isNativeApp());
   const markAudioReady = () => {
     unlockAudioPipeline();
     setAudioReady(true);

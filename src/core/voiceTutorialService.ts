@@ -174,22 +174,44 @@ function getBestVoiceForLanguage(lang: Language): { voice: SpeechSynthesisVoice 
 let nativeSpeakToken = 0;
 
 async function speakNative(text: string, language: Language, onStart?: () => void, onEnd?: () => void): Promise<boolean> {
-  const candidates = language === 'mr' ? ['mr-IN', 'hi-IN'] : language === 'hi' ? ['hi-IN'] : ['en-IN', 'en-US'];
+  // Try preferred language tag first, then fallback to related Indian language / English voices
+  const candidates = language === 'mr'
+    ? ['mr-IN', 'mr', 'hi-IN', 'hi', 'en-IN', 'en-US']
+    : language === 'hi'
+    ? ['hi-IN', 'hi', 'en-IN', 'en-US']
+    : ['en-IN', 'en-US', 'en-GB', 'en'];
+
   const token = ++nativeSpeakToken;
   try {
     let lang: string | null = null;
     for (const c of candidates) {
-      const { supported } = await TextToSpeech.isLanguageSupported({ lang: c });
-      if (supported) {
-        lang = c;
-        break;
+      try {
+        const { supported } = await TextToSpeech.isLanguageSupported({ lang: c });
+        if (supported) {
+          lang = c;
+          break;
+        }
+      } catch (err) {
+        // Continue checking candidates
       }
     }
-    if (!lang) return false;
+
+    if (!lang) {
+      // If language tag check returned false, still attempt speaking with the primary candidate
+      lang = candidates[0];
+    }
+
     if (token !== nativeSpeakToken) return true; // a newer request took over
     await TextToSpeech.stop().catch(() => {});
     onStart?.();
-    await TextToSpeech.speak({ text, lang, rate: language === 'mr' ? 0.9 : 0.95, pitch: 1.0, volume: 1.0, queueStrategy: 0 });
+    await TextToSpeech.speak({
+      text,
+      lang,
+      rate: language === 'mr' ? 0.9 : 0.95,
+      pitch: 1.0,
+      volume: 1.0,
+      category: 'playback'
+    });
     if (token === nativeSpeakToken) onEnd?.();
     return true;
   } catch (e) {

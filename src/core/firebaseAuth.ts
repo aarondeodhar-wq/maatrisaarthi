@@ -19,15 +19,24 @@ import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore
 import { UserRole } from '../types';
 import { isNativeApp, nativeGoogleSignIn, nativeSignOut } from './nativeAuth';
 
-// Live Firebase Project Configuration (MaatriSaarthi Cloud)
+// Firebase project config comes only from environment variables (.env locally, Vercel project
+// settings in production). No values are hard-coded in source. The web API key is public by design,
+// so restrict it to your domains in Google Cloud (APIs & Services > Credentials).
+const requireEnv = (name: string, value: string | undefined): string => {
+  if (!value) {
+    throw new Error(`Missing ${name}. Add it to .env (local) or the Vercel project environment variables.`);
+  }
+  return value;
+};
+
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCssYrkWLs_EMeXxGhkzCSAQofU113Fwk0",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "maatrisaarthi.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "maatrisaarthi",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "maatrisaarthi.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "536118937101",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:536118937101:web:9458bd11ccf7401b55b744",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-0Z4JE7HWHW"
+  apiKey: requireEnv('VITE_FIREBASE_API_KEY', import.meta.env.VITE_FIREBASE_API_KEY),
+  authDomain: requireEnv('VITE_FIREBASE_AUTH_DOMAIN', import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
+  projectId: requireEnv('VITE_FIREBASE_PROJECT_ID', import.meta.env.VITE_FIREBASE_PROJECT_ID),
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: requireEnv('VITE_FIREBASE_APP_ID', import.meta.env.VITE_FIREBASE_APP_ID),
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -147,7 +156,15 @@ export async function fetchUserProfile(uid: string): Promise<UserProfile | null>
 }
 
 async function createProfile(profile: UserProfile): Promise<UserProfile> {
-  await setDoc(doc(db, 'user_accounts', profile.uid), stripUndefined(profile));
+  try {
+    await setDoc(doc(db, 'user_accounts', profile.uid), stripUndefined(profile), { merge: true });
+  } catch (err: any) {
+    console.warn('Could not persist user profile to Firestore (rules or network issue):', err);
+    // If Firestore write fails (e.g. firestore.rules not deployed yet in Firebase Console),
+    // cache locally so the successfully authenticated Google user is not blocked.
+    cacheProfile(profile);
+    return profile;
+  }
   cacheProfile(profile);
   return profile;
 }
@@ -259,8 +276,23 @@ export function describeAuthError(err: any): string {
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found':
-    case 'auth/invalid-email':
       return 'Incorrect mobile number or password.';
+    case 'auth/invalid-email':
+      return 'Enter a valid 10-digit mobile number or email address.';
+    case 'auth/missing-password':
+      return 'Enter your password.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled. Please contact your administrator.';
+    case 'auth/unauthorized-domain':
+      return 'This website address is not authorised for sign-in. Ask your administrator to add it in Firebase (Authentication > Settings > Authorized domains).';
+    case 'auth/configuration-not-found':
+    case 'auth/invalid-api-key':
+    case 'auth/app-not-authorized':
+      return 'Sign-in is not configured correctly for this app. Please contact your administrator.';
+    case 'auth/popup-blocked':
+      return 'The sign-in window was blocked by the browser. Allow pop-ups for this site and try again.';
+    case 'auth/internal-error':
+      return 'Sign-in failed on the server. Please try again in a moment.';
     case 'auth/email-already-in-use':
       return 'An account with this mobile number already exists. Please sign in.';
     case 'auth/weak-password':
@@ -274,10 +306,15 @@ export function describeAuthError(err: any): string {
     case 'auth/code-expired':
       return 'This OTP has expired. Please request a new one.';
     case 'auth/operation-not-allowed':
-      return 'This sign-in method is not enabled for MaatriSaarthi yet. Please contact your administrator.';
+      return 'This sign-in method is not enabled for MaatriSaarthi yet. Ask your administrator to enable Email/Password and Google sign-in in Firebase (Authentication > Sign-in method).';
     case 'auth/network-request-failed':
       return 'No network connection. Please try again when online.';
+    case 'permission-denied':
+      return 'Firestore permission denied: Your cloud Firestore rules rejected this action. Publish firestore.rules in Firebase Console (Firestore Database > Rules).';
     default:
+      if (err?.message?.toLowerCase().includes('permissions') || err?.code === 'permission-denied') {
+        return 'Firestore permission denied: The server rules rejected the profile write. Publish firestore.rules in Firebase Console (Firestore Database > Rules).';
+      }
       return err?.message || 'Sign-in failed.';
   }
 }

@@ -3,6 +3,16 @@
 // accuracy has not been validated on labelled clinical data.
 
 import { RiskTier, MLModelBenchmark } from '../types';
+import { evaluatePregnancyFactors, PregnancyProfile } from './pregnancyRisk';
+import modelJson from './riskModel.json';
+
+interface TreeNode { p?: number; f?: number; t?: number; l?: TreeNode; r?: TreeNode }
+const riskModel = modelJson as unknown as {
+  trained: boolean;
+  threshold: number;
+  trees?: TreeNode[];
+  tree: TreeNode & { p?: number };
+};
 
 export interface ClinicalVitals {
   age: number;
@@ -10,6 +20,7 @@ export interface ClinicalVitals {
   diastolicBP: number;      // mmHg
   hemoglobin: number;       // g/dL
   bloodSugar: number;       // mg/dL
+  bodyTemp?: number;        // °F
   weightKg?: number;
   parity?: number;
   gestationalWeeks?: number;
@@ -20,6 +31,15 @@ export interface ClinicalVitals {
   hasFacialEdema?: boolean;
   hasReducedFetalMovement?: boolean;
   hasConvulsions?: boolean;
+  spO2?: number;            // % oxygen saturation (pulse oximeter)
+  bodyTempF?: number;       // °F (the training data is in °F)
+  heartRate?: number;       // bpm, resting
+  urineProtein?: 'NIL' | 'TRACE' | '1+' | '2+' | '3+';
+  // Pregnancy-specific factors (see pregnancyRisk.ts)
+  pregnancy?: Partial<PregnancyProfile>;
+  hasRegularContractions?: boolean;
+  hasLeakingFluid?: boolean;
+  hasLowerAbdominalPain?: boolean;
 }
 
 export interface MLPredictionResult {
@@ -50,6 +70,7 @@ export interface MLPredictionResult {
   }>;
   triggerEmergency108: boolean;
   needsPMSMASpecialist: boolean;
+  pretermRisk: { level: 'LOW' | 'MODERATE' | 'HIGH'; reasons: string[] };
 }
 
 /**
@@ -300,6 +321,83 @@ export function predictMaternalRisk(vitals: ClinicalVitals): MLPredictionResult 
     });
   }
 
+  // 7. Other vitals and signs. Thresholds are hand-set from standard antenatal guidance, not learned.
+  if (vitals.spO2 !== undefined && vitals.spO2 > 0) {
+    if (vitals.spO2 < 90) {
+      hardRedFlagTriggered = true;
+      triggerEmergency108 = true;
+      rawRiskScore += 0.70;
+      explainability.push({
+        feature: 'SpO2', value: `${vitals.spO2}%`, contribution: 'HIGH_RISK', impactScore: 95,
+        reason: { mr: `SpO2 ${vitals.spO2}% (गंभीर ऑक्सिजन कमतरता - तात्काळ ऑक्सिजन व रेफर)`, hi: `SpO2 ${vitals.spO2}% (गंभीर ऑक्सीजन कमी - तुरंत ऑक्सीजन व रेफर)`, en: `SpO2 ${vitals.spO2}% (severe hypoxia - oxygen and immediate referral)` }
+      });
+    } else if (vitals.spO2 < 94) {
+      rawRiskScore += 0.25;
+      explainability.push({
+        feature: 'SpO2', value: `${vitals.spO2}%`, contribution: 'MODERATE_RISK', impactScore: 50,
+        reason: { mr: `SpO2 ${vitals.spO2}% (कमी ऑक्सिजन - पुन्हा तपासा)`, hi: `SpO2 ${vitals.spO2}% (कम ऑक्सीजन - दोबारा जांचें)`, en: `SpO2 ${vitals.spO2}% (low oxygen - recheck, refer if it persists)` }
+      });
+    }
+  }
+  if (vitals.bodyTempF !== undefined && vitals.bodyTempF >= 100.4) {
+    rawRiskScore += 0.20;
+    explainability.push({
+      feature: 'Body temperature', value: `${vitals.bodyTempF} °F`, contribution: 'MODERATE_RISK', impactScore: 40,
+      reason: { mr: `ताप ${vitals.bodyTempF} °F (संसर्ग - UTI, मलेरिया, सेप्सिस तपासा)`, hi: `बुखार ${vitals.bodyTempF} °F (संक्रमण - UTI, मलेरिया, सेप्सिस जांचें)`, en: `Fever ${vitals.bodyTempF} °F (infection - check for UTI, malaria, sepsis)` }
+    });
+  }
+  if (vitals.heartRate !== undefined && vitals.heartRate > 0 && (vitals.heartRate > 120 || vitals.heartRate < 50)) {
+    rawRiskScore += 0.20;
+    const fast = vitals.heartRate > 120;
+    explainability.push({
+      feature: 'Heart rate', value: `${vitals.heartRate} bpm`, contribution: 'MODERATE_RISK', impactScore: 40,
+      reason: {
+        mr: fast ? `नाडी ${vitals.heartRate} bpm (जलद - कारण तपासा)` : `नाडी ${vitals.heartRate} bpm (मंद - कारण तपासा)`,
+        hi: fast ? `नब्ज ${vitals.heartRate} bpm (तेज़ - कारण जांचें)` : `नब्ज ${vitals.heartRate} bpm (धीमी - कारण जांचें)`,
+        en: fast ? `Pulse ${vitals.heartRate} bpm (fast - find the cause)` : `Pulse ${vitals.heartRate} bpm (slow - find the cause)`
+      }
+    });
+  }
+  if (vitals.weightKg !== undefined && vitals.weightKg > 0 && vitals.weightKg < 45) {
+    rawRiskScore += 0.15;
+    explainability.push({
+      feature: 'Weight', value: `${vitals.weightKg} kg`, contribution: 'MODERATE_RISK', impactScore: 30,
+      reason: { mr: `वजन ${vitals.weightKg} kg (कमी वजन - बाळाचे वजन कमी होण्याचा धोका)`, hi: `वज़न ${vitals.weightKg} kg (कम वज़न - शिशु का वज़न कम होने का खतरा)`, en: `Weight ${vitals.weightKg} kg (underweight - low birth weight risk)` }
+    });
+  }
+  if (vitals.urineProtein === '2+' || vitals.urineProtein === '3+') {
+    const highBp = vitals.systolicBP >= 140 || vitals.diastolicBP >= 90;
+    if (highBp) hardRedFlagTriggered = true;
+    rawRiskScore += highBp ? 0.60 : 0.25;
+    explainability.push({
+      feature: 'Urine protein', value: vitals.urineProtein, contribution: highBp ? 'HIGH_RISK' : 'MODERATE_RISK', impactScore: highBp ? 90 : 45,
+      reason: highBp
+        ? { mr: `लघवीत प्रथिने ${vitals.urineProtein} व उच्च रक्तदाब (प्री-एक्लेम्पसिया)`, hi: `पेशाब में प्रोटीन ${vitals.urineProtein} और उच्च रक्तचाप (प्री-एक्लेम्पसिया)`, en: `Urine protein ${vitals.urineProtein} with high BP (pre-eclampsia)` }
+        : { mr: `लघवीत प्रथिने ${vitals.urineProtein} (मूत्रपिंड / प्री-एक्लेम्पसिया तपासा)`, hi: `पेशाब में प्रोटीन ${vitals.urineProtein} (गुर्दे / प्री-एक्लेम्पसिया जांचें)`, en: `Urine protein ${vitals.urineProtein} (check kidneys and pre-eclampsia)` }
+    });
+  }
+  if (vitals.hasFacialEdema) {
+    rawRiskScore += 0.15;
+    explainability.push({
+      feature: 'Facial / pedal oedema', value: 'Yes', contribution: 'MODERATE_RISK', impactScore: 35,
+      reason: { mr: 'चेहऱ्यावर / पायावर सूज (प्री-एक्लेम्पसिया चिन्ह)', hi: 'चेहरे/पैरों में सूजन (प्री-एक्लेम्पसिया संकेत)', en: 'Facial / pedal oedema (pre-eclampsia sign)' }
+    });
+  }
+
+  // 6. Pregnancy factors: multiple pregnancy, placement, growth, diseases, past/conception complications, preterm labour
+  const pregnancyEval = evaluatePregnancyFactors({
+    gestationalWeeks: vitals.gestationalWeeks,
+    pregnancy: vitals.pregnancy,
+    hasRegularContractions: vitals.hasRegularContractions,
+    hasLeakingFluid: vitals.hasLeakingFluid,
+    hasLowerAbdominalPain: vitals.hasLowerAbdominalPain,
+    hasBleeding: vitals.hasBleeding
+  });
+  rawRiskScore += pregnancyEval.points;
+  explainability.push(...pregnancyEval.explainability);
+  if (pregnancyEval.hardRed) hardRedFlagTriggered = true;
+  if (pregnancyEval.emergency108) triggerEmergency108 = true;
+
   // Bound probability strictly between 0.05 and 0.99
   const riskProbability = Math.min(0.99, Math.max(0.05, Number(rawRiskScore.toFixed(3))));
 
@@ -310,6 +408,71 @@ export function predictMaternalRisk(vitals: ClinicalVitals): MLPredictionResult 
     riskTier = 'RED';
   } else if (riskProbability >= 0.20 || explainability.some(e => e.contribution === 'MODERATE_RISK')) {
     riskTier = 'YELLOW';
+  }
+
+  // Trained model (src/core/riskModel.json, built by scripts/train-risk-model.mjs) can only raise the tier.
+  // Explainable: the decision path the tree took is shown, so each reading's effect can be traced.
+  // Needs a real temperature and heart rate (no defaults): without them the tree is skipped.
+  if (riskModel.trained && vitals.systolicBP > 0 && vitals.diastolicBP > 0 && vitals.age > 0
+    && vitals.bodyTempF !== undefined && vitals.heartRate !== undefined && vitals.heartRate > 0) {
+    const FEATURE_NAMES = [
+      'Age',
+      'Systolic BP',
+      'Diastolic BP',
+      'Blood sugar (mmol/L)',
+      'Body Temp (°F)',
+      'Heart Rate (bpm)'
+    ];
+    const x = [
+      vitals.age,
+      vitals.systolicBP,
+      vitals.diastolicBP,
+      (vitals.bloodSugar || 0) / 18,
+      vitals.bodyTempF,
+      vitals.heartRate
+    ];
+    let p = 0;
+    if (riskModel.trees && riskModel.trees.length > 0) {
+      let sumP = 0;
+      for (const t of riskModel.trees) {
+        let n: TreeNode = t;
+        while (n.p === undefined) {
+          n = x[n.f!] < n.t! ? n.l! : n.r!;
+        }
+        sumP += n.p!;
+      }
+      p = sumP / riskModel.trees.length;
+    } else if (riskModel.tree) {
+      let n = riskModel.tree;
+      while (n.p === undefined) {
+        n = x[n.f!] < n.t! ? n.l! : n.r!;
+      }
+      p = n.p!;
+    }
+
+    const path: string[] = [];
+    let node = riskModel.tree;
+    while (node && node.p === undefined) {
+      const f = node.f!;
+      const goLeft = x[f] < node.t!;
+      path.push(`${FEATURE_NAMES[f]} ${goLeft ? '<' : '≥'} ${node.t}`);
+      node = goLeft ? node.l! : node.r!;
+    }
+
+    const pct = Math.round(p * 100);
+    const flagged = p >= riskModel.threshold;
+    explainability.push({
+      feature: 'Trained ML Model (Random Forest Ensemble)',
+      value: `${pct}% high-risk consensus (${riskModel.trees ? riskModel.trees.length : 1} clinical trees)`,
+      contribution: flagged ? 'HIGH_RISK' : 'NORMAL',
+      impactScore: pct,
+      reason: {
+        mr: `रँडम फॉरेस्ट एकमत: ${pct}% जोखीम संभाव्यता (मुख्य मार्ग: ${path.slice(0, 3).join(' → ')})`,
+        hi: `रैंडम फ़ॉरेस्ट सर्वसम्मति: ${pct}% जोखिम प्रायिकता (प्रमुख मार्ग: ${path.slice(0, 3).join(' → ')})`,
+        en: `Random Forest consensus: ${pct}% risk probability across ${riskModel.trees?.length || 1} trees (Primary path: ${path.slice(0, 3).join(' → ')})`
+      }
+    });
+    if (flagged && riskTier !== 'RED') riskTier = 'RED';
   }
 
   const isHighRisk = riskTier === 'RED';
@@ -348,7 +511,8 @@ export function predictMaternalRisk(vitals: ClinicalVitals): MLPredictionResult 
     triageAction,
     explainability,
     triggerEmergency108,
-    needsPMSMASpecialist
+    needsPMSMASpecialist,
+    pretermRisk: pregnancyEval.pretermRisk
   };
 }
 
@@ -498,6 +662,8 @@ export function generate5kMaternalDataset(count: number = 5000): Maternal5kRecor
       diastolicBP,
       hemoglobin,
       bloodSugar,
+      bodyTemp: bodyTempF,
+      heartRate: heartRateBpm,
       gestationalWeeks,
       parity,
       hasBleeding: bleeding,

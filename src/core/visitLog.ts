@@ -52,8 +52,8 @@ export async function logVisit(
   verified: boolean,
   isOnline: boolean = navigator.onLine,
   motherConfirmed: boolean = false
-): Promise<void> {
-  if (!profile || isDemoProfile(profile) || profile.role !== 'ASHA_WORKER' || !profile.approved) return;
+): Promise<string | null> {
+  if (!profile || isDemoProfile(profile) || profile.role !== 'ASHA_WORKER' || !profile.approved) return null;
   const geo = await getCurrentGeo();
   const visit: VisitLog = {
     id: 'visit_' + Math.random().toString(36).substring(2, 11),
@@ -67,4 +67,5 @@ export async function logVisit(
     ...(geo ? { geo } : {})
   };
   queueOfflineMutation('VISIT_LOG', beneficiary.id, { visit }, isOnline);
+  return visit.id;
 }

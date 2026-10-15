@@ -133,6 +133,14 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
         doctorReply: 'Reviewed vitals. Issued IV Iron Sucrose referral and prescribed Tab Labetalol. Please coordinate hospital visit today.'
       }
     ],
+    pregnancy: {
+      fetusCount: 2,
+      presentation: 'CEPHALIC',
+      growth: 'SMALL_FOR_DATES',
+      conditions: ['chronic_htn', 'syphilis'],
+      conceptionEvents: ['assisted'],
+      priorComplications: ['preterm']
+    },
     dpdpConsent: createDefaultDPDPConsent('mr', true, true, true),
     qrAuthToken: 'MS-AUTH-MH8941-SECURE',
     accessPin: '4829',
@@ -202,6 +210,14 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     ],
     prescriptions: [],
     audioNotes: [],
+    pregnancy: {
+      fetusCount: 1,
+      presentation: 'UNKNOWN',
+      growth: 'NORMAL',
+      conditions: ['thyroid', 'hsv_genital'],
+      conceptionEvents: ['recurrent_miscarriage'],
+      priorComplications: ['miscarriage']
+    },
     dpdpConsent: createDefaultDPDPConsent('mr', true, true, true),
     qrAuthToken: 'MS-AUTH-MH7215-SECURE',
     accessPin: '7391',
@@ -267,6 +283,14 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     ],
     prescriptions: [],
     audioNotes: [],
+    pregnancy: {
+      fetusCount: 1,
+      presentation: 'UNKNOWN',
+      growth: 'NORMAL',
+      conditions: [],
+      conceptionEvents: [],
+      priorComplications: []
+    },
     dpdpConsent: createDefaultDPDPConsent('mr', true, true, true),
     qrAuthToken: 'MS-AUTH-MH4419-SECURE',
     accessPin: '1284',
@@ -357,6 +381,14 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
       }
     ],
     audioNotes: [],
+    pregnancy: {
+      fetusCount: 1,
+      presentation: 'BREECH',
+      growth: 'NORMAL',
+      conditions: ['hiv', 'hep_b'],
+      conceptionEvents: ['threatened_miscarriage'],
+      priorComplications: ['preeclampsia']
+    },
     dpdpConsent: createDefaultDPDPConsent('mr', true, true, true),
     qrAuthToken: 'MS-AUTH-MH9032-SECURE',
     accessPin: '9421',
@@ -425,6 +457,14 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     ],
     prescriptions: [],
     audioNotes: [],
+    pregnancy: {
+      fetusCount: 1,
+      presentation: 'CEPHALIC',
+      growth: 'NORMAL',
+      conditions: [],
+      conceptionEvents: [],
+      priorComplications: []
+    },
     dpdpConsent: createDefaultDPDPConsent('mr', true, true, true),
     qrAuthToken: 'MS-AUTH-MH6180-SECURE',
     accessPin: '6180',
@@ -490,6 +530,14 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
     ],
     prescriptions: [],
     audioNotes: [],
+    pregnancy: {
+      fetusCount: 1,
+      presentation: 'UNKNOWN',
+      growth: 'NORMAL',
+      conditions: ['malaria'],
+      conceptionEvents: ['hyperemesis'],
+      priorComplications: []
+    },
     dpdpConsent: createDefaultDPDPConsent('mr', true, true, true),
     qrAuthToken: 'MS-AUTH-MH1192-SECURE',
     accessPin: '1192',
@@ -582,6 +630,14 @@ export const MOCK_BENEFICIARIES: Beneficiary[] = [
       }
     ],
     audioNotes: [],
+    pregnancy: {
+      fetusCount: 1,
+      presentation: 'TRANSVERSE',
+      growth: 'LARGE_FOR_DATES',
+      conditions: ['preex_diabetes', 'heart'],
+      conceptionEvents: ['rh_neg'],
+      priorComplications: ['stillbirth', 'gdm']
+    },
     dpdpConsent: createDefaultDPDPConsent('mr', true, true, true),
     qrAuthToken: 'MS-AUTH-MH3824-SECURE',
     accessPin: '3824',

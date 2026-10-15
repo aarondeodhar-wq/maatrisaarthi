@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Beneficiary, Language } from '../types';
 import { computeKAnonymizedWardMetrics, computeSubCentreSummaries, formatPercent, formatSuppressedCount } from '../core/dpdpCompliance';
 import { AshaSupervisionPanel } from './AshaSupervisionPanel';
+import { ModelEvidencePanel } from './ModelEvidencePanel';
 import { exportWardReportToWordDoc } from '../core/wordExportService';
 import { MOCK_WARD_NAMES } from '../data/mockMaternalData';
 import { 
@@ -358,6 +359,7 @@ export const WardDashboard: React.FC<WardDashboardProps> = ({ beneficiaries, lan
 
         {/* ASHA field supervision: visits, GPS distance, unscanned edits, overdue ANC */}
         <AshaSupervisionPanel beneficiaries={beneficiaries} />
+        <ModelEvidencePanel />
 
         {/* 108 Emergency Ambulance Readiness */}
         <div className="silky-glass p-5 sm:p-6 rounded-3xl shadow-xl border border-slate-200 dark:border-white/10 space-y-3">
