@@ -47,6 +47,13 @@
         </provider>
     </application>
 
+    <!-- Android 11+: lets the app see the phone's text-to-speech engine for voice guidance -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <!-- Essential Android Permissions for Camera, Audio, GPS, Notifications & Offline Network -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

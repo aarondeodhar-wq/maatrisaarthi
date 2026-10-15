@@ -1,4 +1,6 @@
 import { Language } from '../types';
+import { TextToSpeech } from '@capacitor-community/text-to-speech';
+import { isNativeApp } from './nativeAuth';
 
 export interface VoiceTutorialScript {
   id: string;
@@ -166,6 +168,36 @@ function getBestVoiceForLanguage(lang: Language): { voice: SpeechSynthesisVoice 
   return { voice: null, langCode: 'en-US' };
 }
 
+// Android WebView has no working speechSynthesis, so the app speaks through the phone's own
+// text-to-speech engine. Marathi falls back to a Hindi voice (same script) when no Marathi
+// voice is installed. Returns false when no usable voice exists, so the web path can try.
+let nativeSpeakToken = 0;
+
+async function speakNative(text: string, language: Language, onStart?: () => void, onEnd?: () => void): Promise<boolean> {
+  const candidates = language === 'mr' ? ['mr-IN', 'hi-IN'] : language === 'hi' ? ['hi-IN'] : ['en-IN', 'en-US'];
+  const token = ++nativeSpeakToken;
+  try {
+    let lang: string | null = null;
+    for (const c of candidates) {
+      const { supported } = await TextToSpeech.isLanguageSupported({ lang: c });
+      if (supported) {
+        lang = c;
+        break;
+      }
+    }
+    if (!lang) return false;
+    if (token !== nativeSpeakToken) return true; // a newer request took over
+    await TextToSpeech.stop().catch(() => {});
+    onStart?.();
+    await TextToSpeech.speak({ text, lang, rate: language === 'mr' ? 0.9 : 0.95, pitch: 1.0, volume: 1.0, queueStrategy: 0 });
+    if (token === nativeSpeakToken) onEnd?.();
+    return true;
+  } catch (e) {
+    console.warn('Native text-to-speech failed:', e);
+    return false;
+  }
+}
+
 /**
  * Bulletproof Voice Player for Marathi, Hindi, and English with auto-recovery
  */
@@ -191,6 +223,22 @@ export const speakTutorialAudio = (
     return;
   }
 
+  if (isNativeApp()) {
+    speakNative(cleanSpokenText, language, onStart, onEnd).then(ok => {
+      if (!ok) speakTutorialAudioWeb(cleanSpokenText, language, onStart, onEnd);
+    });
+    return;
+  }
+  speakTutorialAudioWeb(cleanSpokenText, language, onStart, onEnd);
+};
+
+// Browser path: speechSynthesis, then an online audio fallback
+function speakTutorialAudioWeb(
+  cleanSpokenText: string,
+  language: Language,
+  onStart?: () => void,
+  onEnd?: () => void
+) {
   let speechStarted = false;
 
   const handleStart = () => {
@@ -277,7 +325,7 @@ export const speakTutorialAudio = (
     // Fallback if speechSynthesis is unavailable
     playOnlineAudioFallback(cleanSpokenText, language, handleStart, handleEnd);
   }, 40);
-};
+}
 
 /**
  * Online Google TTS Audio stream fallback for devices with no local voice packs (English, Marathi, Hindi)
@@ -327,6 +375,8 @@ function playOnlineAudioFallback(
 }
 
 export const stopTutorialAudio = () => {
+  nativeSpeakToken++;
+  if (isNativeApp()) TextToSpeech.stop().catch(() => {});
   if (speakDelayTimer) {
     clearTimeout(speakDelayTimer);
     speakDelayTimer = null;
